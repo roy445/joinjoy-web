@@ -1,0 +1,12 @@
+node_modules/
+.next/
+out/
+.turbo/
+.env
+.env.*
+!.env.example
+*.log
+npm-debug.log*
+.DS_Store
+Thumbs.db
+.vscode/
