@@ -1,133 +1,111 @@
-import { createHash, randomBytes, scrypt as scryptCallback, timingSafeEqual } from "node:crypto";
-import { promisify } from "node:util";
-import { and, eq, gt } from "drizzle-orm";
 import { cookies } from "next/headers";
+import crypto from "crypto";
 import { db } from "@/db";
 import { sessions, users } from "@/db/schema";
-
-const scrypt = promisify(scryptCallback);
+import { eq, and, gt } from "drizzle-orm";
 
 export const SESSION_COOKIE = "joinjoy_session";
-export const SESSION_TTL_SECONDS = 60 * 60 * 24 * 30;
+const SESSION_DAYS = 30;
 
-export type PublicUser = {
-  id: string;
-  name: string;
+export function hashPassword(password: string): string {
+  const salt = crypto.randomBytes(16).toString("hex");
+  const hash = crypto.scryptSync(password, salt, 64).toString("hex");
+  return `${salt}:${hash}`;
+}
+
+export function verifyPassword(password: string, stored: string): boolean {
+  const [salt, hash] = stored.split(":");
+  if (!salt || !hash) return false;
+  const check = crypto.scryptSync(password, salt, 64).toString("hex");
+  try {
+    return crypto.timingSafeEqual(Buffer.from(hash, "hex"), Buffer.from(check, "hex"));
+  } catch {
+    return false;
+  }
+}
+
+export function generateToken(): string {
+  return crypto.randomBytes(32).toString("hex");
+}
+
+export type SessionUser = {
+  id: number;
   email: string;
-  role: "member" | "admin";
-  status: "active" | "suspended";
-  bio: string | null;
+  name: string;
   avatarUrl: string | null;
-  interests: string[];
-  creditScore: number;
-  createdAt: Date;
+  role: string;
+  status: string;
+  canCreateEvent: boolean;
+  creditScore: string;
+  isBlacklisted: boolean;
 };
 
-export async function hashPassword(password: string) {
-  const salt = randomBytes(16).toString("hex");
-  const derivedKey = (await scrypt(password, salt, 64)) as Buffer;
-  return `${salt}:${derivedKey.toString("hex")}`;
-}
-
-export async function verifyPassword(password: string, storedHash: string) {
-  const [salt, storedKey] = storedHash.split(":");
-  if (!salt || !storedKey) return false;
-
-  const derivedKey = (await scrypt(password, salt, 64)) as Buffer;
-  const expectedKey = Buffer.from(storedKey, "hex");
-  return expectedKey.length === derivedKey.length && timingSafeEqual(expectedKey, derivedKey);
-}
-
-export function normalizeEmail(email: string) {
-  return email.trim().toLowerCase();
-}
-
-export function hashSessionToken(token: string) {
-  return createHash("sha256").update(token).digest("hex");
-}
-
-export function hashAccessCode(code: string) {
-  return createHash("sha256").update(code.trim().toUpperCase()).digest("hex");
-}
-
-export function getSessionCookieOptions(maxAge = SESSION_TTL_SECONDS) {
-  return {
+export async function createSession(userId: number) {
+  const token = generateToken();
+  const expiresAt = new Date(Date.now() + SESSION_DAYS * 24 * 60 * 60 * 1000);
+  await db.insert(sessions).values({ userId, token, expiresAt });
+  const cookieStore = await cookies();
+  cookieStore.set(SESSION_COOKIE, token, {
     httpOnly: true,
-    sameSite: "lax" as const,
     secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
     path: "/",
-    maxAge,
-  };
-}
-
-export async function createSession(userId: string) {
-  const token = randomBytes(32).toString("hex");
-  const expiresAt = new Date(Date.now() + SESSION_TTL_SECONDS * 1000);
-
-  await db.insert(sessions).values({
-    tokenHash: hashSessionToken(token),
-    userId,
-    expiresAt,
+    expires: expiresAt,
   });
-
-  return { token, expiresAt };
+  return token;
 }
 
-export async function getUserFromSession(token: string): Promise<PublicUser | null> {
-  const tokenHash = hashSessionToken(token);
-  const [result] = await db
-    .select({
-      id: users.id,
-      name: users.name,
-      email: users.email,
-      role: users.role,
-      status: users.status,
-      bio: users.bio,
-      avatarUrl: users.avatarUrl,
-      interests: users.interests,
-      creditScore: users.creditScore,
-      createdAt: users.createdAt,
-      expiresAt: sessions.expiresAt,
-    })
-    .from(sessions)
-    .innerJoin(users, eq(sessions.userId, users.id))
-    .where(and(eq(sessions.tokenHash, tokenHash), gt(sessions.expiresAt, new Date())))
-    .limit(1);
-
-  if (!result || result.status === "suspended") return null;
-  return {
-    id: result.id,
-    name: result.name,
-    email: result.email,
-    role: result.role,
-    status: result.status,
-    bio: result.bio,
-    avatarUrl: result.avatarUrl,
-    interests: result.interests,
-    creditScore: result.creditScore,
-    createdAt: result.createdAt,
-  };
+export async function destroySession() {
+  const cookieStore = await cookies();
+  const token = cookieStore.get(SESSION_COOKIE)?.value;
+  if (token) {
+    await db.delete(sessions).where(eq(sessions.token, token));
+  }
+  cookieStore.delete(SESSION_COOKIE);
 }
 
-export async function getCurrentUser() {
+export async function getCurrentUser(): Promise<SessionUser | null> {
   const cookieStore = await cookies();
   const token = cookieStore.get(SESSION_COOKIE)?.value;
   if (!token) return null;
-  return getUserFromSession(token);
+
+  const rows = await db
+    .select({
+      id: users.id,
+      email: users.email,
+      name: users.name,
+      avatarUrl: users.avatarUrl,
+      role: users.role,
+      status: users.status,
+      canCreateEvent: users.canCreateEvent,
+      creditScore: users.creditScore,
+      isBlacklisted: users.isBlacklisted,
+    })
+    .from(sessions)
+    .innerJoin(users, eq(sessions.userId, users.id))
+    .where(and(eq(sessions.token, token), gt(sessions.expiresAt, new Date())))
+    .limit(1);
+
+  return rows[0] ?? null;
 }
 
-export async function requireUser() {
+export async function requireUser(): Promise<SessionUser> {
   const user = await getCurrentUser();
-  if (!user) throw new Error("UNAUTHORIZED");
+  if (!user) {
+    throw new AuthError("請先登入");
+  }
+  if (user.status === "suspended") {
+    throw new AuthError("您的帳號已被停權");
+  }
   return user;
 }
 
-export async function requireAdmin() {
+export async function requireAdmin(): Promise<SessionUser> {
   const user = await requireUser();
-  if (user.role !== "admin") throw new Error("FORBIDDEN");
+  if (user.role !== "admin") {
+    throw new AuthError("需要管理員權限");
+  }
   return user;
 }
 
-export async function deleteSession(token: string) {
-  await db.delete(sessions).where(eq(sessions.tokenHash, hashSessionToken(token)));
-}
+export class AuthError extends Error {}

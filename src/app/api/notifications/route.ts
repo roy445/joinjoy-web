@@ -1,27 +1,41 @@
-import { and, desc, eq, isNull } from "drizzle-orm";
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { notifications } from "@/db/schema";
-import { getCurrentUser } from "@/lib/auth";
+import { eq, and, desc, sql } from "drizzle-orm";
+import { requireUser } from "@/lib/auth";
+import { errorResponse } from "@/lib/api";
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
-    const user = await getCurrentUser();
-    if (!user) return NextResponse.json({ message: "請先登入" }, { status: 401 });
-    const result = await db.select({ id: notifications.id, type: notifications.type, title: notifications.title, body: notifications.body, link: notifications.link, readAt: notifications.readAt, createdAt: notifications.createdAt }).from(notifications).where(eq(notifications.userId, user.id)).orderBy(desc(notifications.createdAt)).limit(50);
-    return NextResponse.json({ notifications: result, unread: result.filter((item) => item.readAt === null).length });
-  } catch {
-    return NextResponse.json({ message: "目前無法取得通知" }, { status: 500 });
+    const user = await requireUser();
+    if (req.nextUrl.searchParams.get("unreadCount")) {
+      const [{ count }] = await db
+        .select({ count: sql<number>`count(*)` })
+        .from(notifications)
+        .where(and(eq(notifications.userId, user.id), eq(notifications.isRead, false)));
+      return NextResponse.json({ count: Number(count) });
+    }
+    const rows = await db.select().from(notifications).where(eq(notifications.userId, user.id)).orderBy(desc(notifications.createdAt)).limit(100);
+    return NextResponse.json({ notifications: rows });
+  } catch (err) {
+    return errorResponse(err);
   }
 }
 
-export async function PATCH() {
+export async function PATCH(req: NextRequest) {
   try {
-    const user = await getCurrentUser();
-    if (!user) return NextResponse.json({ message: "請先登入" }, { status: 401 });
-    await db.update(notifications).set({ readAt: new Date() }).where(and(eq(notifications.userId, user.id), isNull(notifications.readAt)));
-    return NextResponse.json({ ok: true });
-  } catch {
-    return NextResponse.json({ message: "通知更新失敗" }, { status: 500 });
+    const user = await requireUser();
+    const body = await req.json().catch(() => ({}));
+    if (body.markAllRead) {
+      await db.update(notifications).set({ isRead: true }).where(eq(notifications.userId, user.id));
+      return NextResponse.json({ ok: true });
+    }
+    if (body.id) {
+      await db.update(notifications).set({ isRead: true }).where(and(eq(notifications.id, Number(body.id)), eq(notifications.userId, user.id)));
+      return NextResponse.json({ ok: true });
+    }
+    return NextResponse.json({ error: "缺少參數" }, { status: 400 });
+  } catch (err) {
+    return errorResponse(err);
   }
 }

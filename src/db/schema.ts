@@ -1,274 +1,316 @@
-import { boolean, index, integer, jsonb, pgEnum, pgTable, text, timestamp, uniqueIndex, uuid, varchar } from "drizzle-orm/pg-core";
+import {
+  pgTable,
+  serial,
+  text,
+  varchar,
+  integer,
+  boolean,
+  timestamp,
+  jsonb,
+  numeric,
+  index,
+} from "drizzle-orm/pg-core";
 
-export const userRoleEnum = pgEnum("user_role", ["member", "admin"]);
-export const userStatusEnum = pgEnum("user_status", ["active", "suspended"]);
-export const eventVisibilityEnum = pgEnum("event_visibility", ["public", "private"]);
-export const eventStatusEnum = pgEnum("event_status", ["active", "cancelled", "completed"]);
-export const participantStatusEnum = pgEnum("participant_status", ["pending", "joined", "waitlisted", "left"]);
-export const requestStatusEnum = pgEnum("request_status", ["pending", "approved", "rejected"]);
+// ---------- Users ----------
+export const users = pgTable("users", {
+  id: serial("id").primaryKey(),
+  email: varchar("email", { length: 255 }).notNull().unique(),
+  passwordHash: text("password_hash"),
+  googleId: varchar("google_id", { length: 255 }),
+  name: varchar("name", { length: 100 }).notNull(),
+  avatarUrl: text("avatar_url"),
+  bio: text("bio").default(""),
+  gender: varchar("gender", { length: 10 }),
+  age: integer("age"),
+  interests: jsonb("interests").$type<string[]>().default([]),
+  role: varchar("role", { length: 20 }).notNull().default("user"), // user | admin
+  status: varchar("status", { length: 20 }).notNull().default("active"), // active | suspended
+  suspendReason: text("suspend_reason"),
+  canCreateEvent: boolean("can_create_event").notNull().default(false),
+  eventCreateCredits: integer("event_create_credits").notNull().default(0),
+  creditScore: numeric("credit_score", { precision: 6, scale: 2 }).notNull().default("100"),
+  isBlacklisted: boolean("is_blacklisted").notNull().default(false),
+  noShowCount: integer("no_show_count").notNull().default(0),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
 
-export const users = pgTable(
-  "users",
-  {
-    id: uuid("id").defaultRandom().primaryKey(),
-    name: varchar("name", { length: 80 }).notNull(),
-    email: varchar("email", { length: 255 }).notNull(),
-    passwordHash: varchar("password_hash", { length: 255 }).notNull(),
-    role: userRoleEnum("role").default("member").notNull(),
-    status: userStatusEnum("status").default("active").notNull(),
-    bio: text("bio"),
-    avatarUrl: text("avatar_url"),
-    interests: jsonb("interests").$type<string[]>().default([]).notNull(),
-    creditScore: integer("credit_score").default(100).notNull(),
-    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
-  },
-  (table) => ({
-    emailUnique: uniqueIndex("users_email_unique").on(table.email),
-    statusIndex: index("users_status_idx").on(table.status),
-  }),
-);
+// ---------- Sessions ----------
+export const sessions = pgTable("sessions", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  token: varchar("token", { length: 255 }).notNull().unique(),
+  expiresAt: timestamp("expires_at").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
 
-export const userSettings = pgTable(
-  "user_settings",
-  {
-    id: uuid("id").defaultRandom().primaryKey(),
-    userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
-    emailNotifications: boolean("email_notifications").default(true).notNull(),
-    pushNotifications: boolean("push_notifications").default(false).notNull(),
-    eventReminders: boolean("event_reminders").default(true).notNull(),
-    messageNotifications: boolean("message_notifications").default(true).notNull(),
-    marketingEmails: boolean("marketing_emails").default(false).notNull(),
-    publicProfile: boolean("public_profile").default(true).notNull(),
-    showCreditScore: boolean("show_credit_score").default(true).notNull(),
-    theme: varchar("theme", { length: 10 }).default("light").notNull(),
-    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
-  },
-  (table) => ({
-    userUnique: uniqueIndex("user_settings_user_unique").on(table.userId),
-  }),
-);
+// ---------- Password reset ----------
+export const passwordResetTokens = pgTable("password_reset_tokens", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  token: varchar("token", { length: 255 }).notNull().unique(),
+  expiresAt: timestamp("expires_at").notNull(),
+  used: boolean("used").notNull().default(false),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
 
-export const sessions = pgTable(
-  "sessions",
-  {
-    id: uuid("id").defaultRandom().primaryKey(),
-    tokenHash: varchar("token_hash", { length: 64 }).notNull(),
-    userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
-    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
-    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-  },
-  (table) => ({
-    tokenUnique: uniqueIndex("sessions_token_hash_unique").on(table.tokenHash),
-    userIndex: index("sessions_user_id_idx").on(table.userId),
-    expiryIndex: index("sessions_expires_at_idx").on(table.expiresAt),
-  }),
-);
+// ---------- One-time codes for creating events ----------
+export const oneTimeCodes = pgTable("one_time_codes", {
+  id: serial("id").primaryKey(),
+  code: varchar("code", { length: 40 }).notNull().unique(),
+  createdBy: integer("created_by").notNull().references(() => users.id),
+  usedBy: integer("used_by").references(() => users.id),
+  usedAt: timestamp("used_at"),
+  revoked: boolean("revoked").notNull().default(false),
+  expiresAt: timestamp("expires_at"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
 
+// ---------- Requests to gain create-event permission ----------
+export const createEventRequests = pgTable("create_event_requests", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  reason: text("reason").notNull(),
+  status: varchar("status", { length: 20 }).notNull().default("pending"), // pending | approved | rejected
+  reviewedBy: integer("reviewed_by").references(() => users.id),
+  reviewedAt: timestamp("reviewed_at"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// ---------- Events ----------
 export const events = pgTable(
   "events",
   {
-    id: uuid("id").defaultRandom().primaryKey(),
-    hostId: uuid("host_id").notNull().references(() => users.id, { onDelete: "cascade" }),
-    title: varchar("title", { length: 160 }).notNull(),
-    coverUrl: text("cover_url").notNull(),
-    category: varchar("category", { length: 50 }).notNull(),
+    id: serial("id").primaryKey(),
+    title: varchar("title", { length: 150 }).notNull(),
+    coverImageUrl: text("cover_image_url"),
+    images: jsonb("images").$type<string[]>().default([]),
     description: text("description").notNull(),
-    startAt: timestamp("start_at", { withTimezone: true }).notNull(),
-    endAt: timestamp("end_at", { withTimezone: true }).notNull(),
-    location: varchar("location", { length: 160 }).notNull(),
-    mapUrl: text("map_url"),
-    capacity: integer("capacity").notNull(),
-    price: integer("price").default(0).notNull(),
-    contact: varchar("contact", { length: 160 }).notNull(),
+    region: varchar("region", { length: 50 }),
+    eventDate: varchar("event_date", { length: 10 }).notNull(), // YYYY-MM-DD
+    startTime: varchar("start_time", { length: 5 }).notNull(), // HH:mm
+    endTime: varchar("end_time", { length: 5 }),
+    meetingLocation: varchar("meeting_location", { length: 255 }).notNull(),
+    mapAddress: text("map_address"),
+    lat: numeric("lat", { precision: 10, scale: 6 }),
+    lng: numeric("lng", { precision: 10, scale: 6 }),
+    capacity: integer("capacity").notNull().default(10),
+    fee: numeric("fee", { precision: 10, scale: 2 }).notNull().default("0"),
+    contactInfo: varchar("contact_info", { length: 255 }).notNull(),
     notes: text("notes"),
-    requiresApproval: boolean("requires_approval").default(false).notNull(),
-    allowWaitlist: boolean("allow_waitlist").default(true).notNull(),
-    ageLimit: boolean("age_limit").default(false).notNull(),
-    genderLimit: varchar("gender_limit", { length: 30 }),
-    allowCompanion: boolean("allow_companion").default(false).notNull(),
-    visibility: eventVisibilityEnum("visibility").default("public").notNull(),
-    status: eventStatusEnum("status").default("active").notNull(),
-    tags: jsonb("tags").$type<string[]>().default([]).notNull(),
-    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+    requireApproval: boolean("require_approval").notNull().default(false),
+    allowWaitlist: boolean("allow_waitlist").notNull().default(true),
+    ageMin: integer("age_min"),
+    ageMax: integer("age_max"),
+    genderLimit: varchar("gender_limit", { length: 10 }).notNull().default("any"), // any|male|female
+    allowPlusOne: boolean("allow_plus_one").notNull().default(false),
+    isPrivate: boolean("is_private").notNull().default(false),
+    tags: jsonb("tags").$type<string[]>().default([]),
+    status: varchar("status", { length: 20 }).notNull().default("upcoming"), // upcoming|ongoing|completed|cancelled
+    hostId: integer("host_id").notNull().references(() => users.id),
+    viewCount: integer("view_count").notNull().default(0),
+    reminderSentAt: timestamp("reminder_sent_at"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
   },
   (table) => ({
-    hostIndex: index("events_host_id_idx").on(table.hostId),
-    categoryIndex: index("events_category_idx").on(table.category),
-    startAtIndex: index("events_start_at_idx").on(table.startAt),
-    statusIndex: index("events_status_idx").on(table.status),
-  }),
+    dateIdx: index("events_date_idx").on(table.eventDate),
+    hostIdx: index("events_host_idx").on(table.hostId),
+  })
 );
 
+// ---------- Participants ----------
 export const eventParticipants = pgTable(
   "event_participants",
   {
-    id: uuid("id").defaultRandom().primaryKey(),
-    eventId: uuid("event_id").notNull().references(() => events.id, { onDelete: "cascade" }),
-    userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
-    status: participantStatusEnum("status").default("joined").notNull(),
-    joinedAt: timestamp("joined_at", { withTimezone: true }).defaultNow().notNull(),
+    id: serial("id").primaryKey(),
+    eventId: integer("event_id").notNull().references(() => events.id, { onDelete: "cascade" }),
+    userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    status: varchar("status", { length: 20 }).notNull().default("approved"), // pending|approved|rejected|waitlist|cancelled
+    plusOneCount: integer("plus_one_count").notNull().default(0),
+    attended: boolean("attended"),
+    joinedAt: timestamp("joined_at").notNull().defaultNow(),
   },
   (table) => ({
-    eventUserUnique: uniqueIndex("event_participants_event_user_unique").on(table.eventId, table.userId),
-    eventIndex: index("event_participants_event_idx").on(table.eventId),
-    userIndex: index("event_participants_user_idx").on(table.userId),
-  }),
+    eventIdx: index("participants_event_idx").on(table.eventId),
+    userIdx: index("participants_user_idx").on(table.userId),
+  })
 );
 
-export const favorites = pgTable(
-  "favorites",
-  {
-    id: uuid("id").defaultRandom().primaryKey(),
-    eventId: uuid("event_id").notNull().references(() => events.id, { onDelete: "cascade" }),
-    userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
-    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-  },
-  (table) => ({
-    eventUserUnique: uniqueIndex("favorites_event_user_unique").on(table.eventId, table.userId),
-    userIndex: index("favorites_user_idx").on(table.userId),
-  }),
-);
+// ---------- Favorites ----------
+export const favorites = pgTable("favorites", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  eventId: integer("event_id").notNull().references(() => events.id, { onDelete: "cascade" }),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
 
-export const comments = pgTable(
-  "comments",
-  {
-    id: uuid("id").defaultRandom().primaryKey(),
-    eventId: uuid("event_id").notNull().references(() => events.id, { onDelete: "cascade" }),
-    userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
-    content: text("content").notNull(),
-    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-  },
-  (table) => ({
-    eventIndex: index("comments_event_idx").on(table.eventId),
-  }),
-);
+// ---------- Comments ----------
+export const eventComments = pgTable("event_comments", {
+  id: serial("id").primaryKey(),
+  eventId: integer("event_id").notNull().references(() => events.id, { onDelete: "cascade" }),
+  userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  content: text("content").notNull(),
+  isDeleted: boolean("is_deleted").notNull().default(false),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
 
-export const chatMessages = pgTable(
-  "chat_messages",
+// ---------- Chat ----------
+export const eventChatMessages = pgTable(
+  "event_chat_messages",
   {
-    id: uuid("id").defaultRandom().primaryKey(),
-    eventId: uuid("event_id").notNull().references(() => events.id, { onDelete: "cascade" }),
-    userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
-    content: text("content").notNull(),
+    id: serial("id").primaryKey(),
+    eventId: integer("event_id").notNull().references(() => events.id, { onDelete: "cascade" }),
+    userId: integer("user_id").references(() => users.id, { onDelete: "cascade" }),
+    type: varchar("type", { length: 20 }).notNull().default("text"), // text|image|announcement|poll|system
+    content: text("content"),
     imageUrl: text("image_url"),
-    isAnnouncement: boolean("is_announcement").default(false).notNull(),
-    mentions: jsonb("mentions").$type<string[]>().default([]).notNull(),
-    readAt: timestamp("read_at", { withTimezone: true }),
-    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    mentions: jsonb("mentions").$type<number[]>().default([]),
+    pollId: integer("poll_id"),
+    isDeleted: boolean("is_deleted").notNull().default(false),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
   },
   (table) => ({
-    eventIndex: index("chat_messages_event_idx").on(table.eventId),
-    createdIndex: index("chat_messages_created_idx").on(table.createdAt),
-  }),
+    eventIdx: index("chat_event_idx").on(table.eventId),
+  })
 );
 
+export const eventChatReads = pgTable("event_chat_reads", {
+  id: serial("id").primaryKey(),
+  eventId: integer("event_id").notNull().references(() => events.id, { onDelete: "cascade" }),
+  userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  lastReadAt: timestamp("last_read_at").notNull().defaultNow(),
+});
+
+// ---------- Polls ----------
+export const eventPolls = pgTable("event_polls", {
+  id: serial("id").primaryKey(),
+  eventId: integer("event_id").notNull().references(() => events.id, { onDelete: "cascade" }),
+  createdBy: integer("created_by").notNull().references(() => users.id),
+  question: varchar("question", { length: 255 }).notNull(),
+  options: jsonb("options").$type<string[]>().notNull(),
+  closesAt: timestamp("closes_at"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const eventPollVotes = pgTable("event_poll_votes", {
+  id: serial("id").primaryKey(),
+  pollId: integer("poll_id").notNull().references(() => eventPolls.id, { onDelete: "cascade" }),
+  userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  optionIndex: integer("option_index").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// ---------- Announcements (per event) ----------
+export const eventAnnouncements = pgTable("event_announcements", {
+  id: serial("id").primaryKey(),
+  eventId: integer("event_id").notNull().references(() => events.id, { onDelete: "cascade" }),
+  userId: integer("user_id").notNull().references(() => users.id),
+  content: text("content").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// ---------- Notifications ----------
 export const notifications = pgTable(
   "notifications",
   {
-    id: uuid("id").defaultRandom().primaryKey(),
-    userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    id: serial("id").primaryKey(),
+    userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
     type: varchar("type", { length: 40 }).notNull(),
-    title: varchar("title", { length: 160 }).notNull(),
-    body: text("body").notNull(),
+    title: varchar("title", { length: 150 }).notNull(),
+    content: text("content"),
     link: text("link"),
-    readAt: timestamp("read_at", { withTimezone: true }),
-    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    isRead: boolean("is_read").notNull().default(false),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
   },
   (table) => ({
-    userIndex: index("notifications_user_idx").on(table.userId),
-    readIndex: index("notifications_read_idx").on(table.readAt),
-  }),
+    userIdx: index("notifications_user_idx").on(table.userId),
+  })
 );
 
-export const oneTimeCodes = pgTable(
-  "one_time_codes",
-  {
-    id: uuid("id").defaultRandom().primaryKey(),
-    codeHash: varchar("code_hash", { length: 64 }).notNull(),
-    label: varchar("label", { length: 100 }),
-    createdBy: uuid("created_by").notNull().references(() => users.id),
-    usedBy: uuid("used_by").references(() => users.id),
-    usedAt: timestamp("used_at", { withTimezone: true }),
-    expiresAt: timestamp("expires_at", { withTimezone: true }),
-    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-  },
-  (table) => ({
-    codeUnique: uniqueIndex("one_time_codes_hash_unique").on(table.codeHash),
-    usedIndex: index("one_time_codes_used_idx").on(table.usedAt),
-  }),
-);
+// ---------- Reports (events / comments / chat) ----------
+export const reports = pgTable("reports", {
+  id: serial("id").primaryKey(),
+  type: varchar("type", { length: 20 }).notNull(), // event|comment|chat|user
+  targetId: integer("target_id").notNull(),
+  eventId: integer("event_id").references(() => events.id, { onDelete: "cascade" }),
+  reporterId: integer("reporter_id").notNull().references(() => users.id),
+  reason: varchar("reason", { length: 100 }).notNull(),
+  description: text("description"),
+  status: varchar("status", { length: 20 }).notNull().default("pending"), // pending|resolved|rejected
+  reviewedBy: integer("reviewed_by").references(() => users.id),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
 
-export const createRequests = pgTable(
-  "create_requests",
-  {
-    id: uuid("id").defaultRandom().primaryKey(),
-    userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
-    status: requestStatusEnum("status").default("pending").notNull(),
-    reason: text("reason").notNull(),
-    reviewedBy: uuid("reviewed_by").references(() => users.id),
-    reviewedAt: timestamp("reviewed_at", { withTimezone: true }),
-    usedAt: timestamp("used_at", { withTimezone: true }),
-    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-  },
-  (table) => ({
-    userIndex: index("create_requests_user_idx").on(table.userId),
-    statusIndex: index("create_requests_status_idx").on(table.status),
-  }),
-);
+// ---------- Blacklist requests raised by 揪主 (hosts) ----------
+export const blacklistRequests = pgTable("blacklist_requests", {
+  id: serial("id").primaryKey(),
+  hostId: integer("host_id").notNull().references(() => users.id),
+  targetUserId: integer("target_user_id").notNull().references(() => users.id),
+  eventId: integer("event_id").references(() => events.id),
+  reason: varchar("reason", { length: 150 }).notNull(),
+  description: text("description").notNull(),
+  evidenceUrls: jsonb("evidence_urls").$type<string[]>().default([]),
+  status: varchar("status", { length: 20 }).notNull().default("pending"), // pending|approved|rejected
+  reviewedBy: integer("reviewed_by").references(() => users.id),
+  reviewedAt: timestamp("reviewed_at"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
 
-export const reviews = pgTable(
-  "reviews",
-  {
-    id: uuid("id").defaultRandom().primaryKey(),
-    eventId: uuid("event_id").notNull().references(() => events.id, { onDelete: "cascade" }),
-    reviewerId: uuid("reviewer_id").notNull().references(() => users.id, { onDelete: "cascade" }),
-    revieweeId: uuid("reviewee_id").notNull().references(() => users.id, { onDelete: "cascade" }),
-    punctuality: integer("punctuality").notNull(),
-    friendliness: integer("friendliness").notNull(),
-    noShow: boolean("no_show").default(false).notNull(),
-    overall: integer("overall").notNull(),
-    comment: text("comment"),
-    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-  },
-  (table) => ({
-    reviewUnique: uniqueIndex("reviews_event_reviewer_reviewee_unique").on(table.eventId, table.reviewerId, table.revieweeId),
-    eventIndex: index("reviews_event_idx").on(table.eventId),
-    revieweeIndex: index("reviews_reviewee_idx").on(table.revieweeId),
-  }),
-);
+// ---------- Blacklist entries ----------
+export const blacklist = pgTable("blacklist", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  reason: text("reason").notNull(),
+  sourceRequestId: integer("source_request_id"),
+  addedBy: integer("added_by").notNull().references(() => users.id),
+  active: boolean("active").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
 
-export const reports = pgTable(
-  "reports",
-  {
-    id: uuid("id").defaultRandom().primaryKey(),
-    reporterId: uuid("reporter_id").notNull().references(() => users.id, { onDelete: "cascade" }),
-    eventId: uuid("event_id").references(() => events.id, { onDelete: "cascade" }),
-    commentId: uuid("comment_id").references(() => comments.id, { onDelete: "cascade" }),
-    reason: varchar("reason", { length: 80 }).notNull(),
-    details: text("details"),
-    status: requestStatusEnum("status").default("pending").notNull(),
-    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-  },
-  (table) => ({
-    statusIndex: index("reports_status_idx").on(table.status),
-  }),
-);
+// ---------- Ratings / credit reviews ----------
+export const ratings = pgTable("ratings", {
+  id: serial("id").primaryKey(),
+  eventId: integer("event_id").notNull().references(() => events.id, { onDelete: "cascade" }),
+  raterId: integer("rater_id").notNull().references(() => users.id),
+  rateeId: integer("ratee_id").notNull().references(() => users.id),
+  punctuality: integer("punctuality").notNull(),
+  friendliness: integer("friendliness").notNull(),
+  noShow: boolean("no_show").notNull().default(false),
+  overall: integer("overall").notNull(),
+  comment: text("comment"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
 
-export const auditLogs = pgTable(
-  "audit_logs",
-  {
-    id: uuid("id").defaultRandom().primaryKey(),
-    actorId: uuid("actor_id").references(() => users.id),
-    action: varchar("action", { length: 80 }).notNull(),
-    entityType: varchar("entity_type", { length: 40 }).notNull(),
-    entityId: uuid("entity_id"),
-    metadata: jsonb("metadata").$type<Record<string, unknown>>().default({}).notNull(),
-    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-  },
-  (table) => ({
-    actorIndex: index("audit_logs_actor_idx").on(table.actorId),
-    createdIndex: index("audit_logs_created_idx").on(table.createdAt),
-  }),
-);
+// ---------- Site-wide announcements ----------
+export const siteAnnouncements = pgTable("site_announcements", {
+  id: serial("id").primaryKey(),
+  title: varchar("title", { length: 150 }).notNull(),
+  content: text("content").notNull(),
+  createdBy: integer("created_by").notNull().references(() => users.id),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// ---------- Account appeals (suspended / blacklisted users requesting review) ----------
+export const accountAppeals = pgTable("account_appeals", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  type: varchar("type", { length: 20 }).notNull(), // suspend | blacklist
+  message: text("message").notNull(),
+  status: varchar("status", { length: 20 }).notNull().default("pending"), // pending | resolved | rejected
+  reviewedBy: integer("reviewed_by").references(() => users.id),
+  reviewedAt: timestamp("reviewed_at"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// ---------- Admin operation logs ----------
+export const adminLogs = pgTable("admin_logs", {
+  id: serial("id").primaryKey(),
+  adminId: integer("admin_id").notNull().references(() => users.id),
+  action: varchar("action", { length: 100 }).notNull(),
+  targetType: varchar("target_type", { length: 40 }),
+  targetId: integer("target_id"),
+  detail: text("detail"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});

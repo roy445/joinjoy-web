@@ -1,0 +1,14 @@
+{
+  "name": "揪好咖 JoinJoy",
+  "short_name": "揪好咖",
+  "description": "把喜歡的事，變成一起的事。現代化揪團活動平台。",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#faf7f0",
+  "theme_color": "#339990",
+  "orientation": "portrait",
+  "icons": [
+    { "src": "/logo.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" },
+    { "src": "/logo.png", "sizes": "192x192", "type": "image/png" }
+  ]
+}
