@@ -130,7 +130,8 @@ export function AppShell({ user, children }: { user: ClientUser | null; children
                   管理後台
                 </Link>
               </li>
-            )}          </ul>
+            )}
+          </ul>
         </div>
       </nav>
 
@@ -195,27 +196,27 @@ export function AppShell({ user, children }: { user: ClientUser | null; children
 
       <div className="flex min-w-0 flex-1 flex-col pb-16 md:pb-0">
         {/* Topbar */}
-        <header className="sticky top-0 z-30 flex items-center justify-between gap-3 border-b border-[var(--color-border)] bg-app/80 px-4 py-3 backdrop-blur-md md:px-8">
-          <div className="flex items-center gap-3 md:hidden">
+        <header className="sticky top-0 z-40 flex w-full items-center gap-3 border-b border-[var(--color-border)] bg-app/90 px-4 py-3 backdrop-blur-md md:px-8">
+          <div className="flex shrink-0 items-center gap-3 md:hidden">
             <button onClick={() => setDrawerOpen(true)} className="rounded-full p-2 text-main">
               <Menu size={22} />
             </button>
             <Logo size={32} />
           </div>
-          <div className="hidden md:block" />
-          <div className="flex items-center gap-2">
-            <Link href="/events/create" className="btn-coral hidden items-center gap-1.5 rounded-full px-4 py-2 text-sm font-bold md:flex">
+          <div className="flex-1" />
+          <div className="ml-auto flex shrink-0 items-center gap-2">
+            <Link href="/events/create" className="btn-coral hidden items-center gap-1.5 rounded-full px-4 py-2 text-sm font-bold whitespace-nowrap md:flex">
               <PlusCircle size={16} /> 建立活動
             </Link>
             <ThemeToggle />
             <NotificationBell loggedIn={!!user} />
             {!user && (
-              <Link href="/login" className="btn-brand hidden rounded-full px-4 py-2 text-sm font-bold md:inline-block">
+              <Link href="/login" className="btn-brand hidden whitespace-nowrap rounded-full px-4 py-2 text-sm font-bold md:inline-block">
                 登入 / 註冊
               </Link>
             )}
             {user && (
-              <Link href={`/profile/${user.id}`} className="hidden md:block">
+              <Link href={`/profile/${user.id}`} className="hidden shrink-0 md:block">
                 <img
                   src={user.avatarUrl || `https://api.dicebear.com/9.x/notionists/svg?seed=${user.id}`}
                   alt={user.name}
@@ -224,12 +225,12 @@ export function AppShell({ user, children }: { user: ClientUser | null; children
               </Link>
             )}
           </div>
-
-          {children}        </header>
+        </header>
 
         {user && !user.emailVerified && <EmailVerifyBanner email={user.email} />}
 
         <main key={pathname} className="flex-1 animate-fade-up" style={{ animationDuration: "0.35s" }}>
+          {children}
         </main>
       </div>
 
