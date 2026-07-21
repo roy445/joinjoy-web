@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, ImagePlus } from "lucide-react";
-import { REGIONS, EVENT_TAGS } from "@/lib/constants";
+import { REGIONS } from "@/lib/constants";
 import { SectionTitle } from "@/components/ui";
 
 export function EventEditClient({ id }: { id: string }) {
@@ -22,7 +22,7 @@ export function EventEditClient({ id }: { id: string }) {
       setForm({
         title: e.title, coverImageUrl: e.coverImageUrl, images: e.images || [], description: e.description,
         region: e.region || "台北市", eventDate: e.eventDate, startTime: e.startTime, endTime: e.endTime || "",
-        meetingLocation: e.meetingLocation, mapAddress: e.mapAddress || "", capacity: e.capacity, fee: Number(e.fee),
+        meetingLocation: e.meetingLocation, mapAddress: e.mapAddress || "", capacity: String(e.capacity ?? ""), fee: String(e.fee ?? ""),
         contactInfo: e.contactInfo, notes: e.notes || "", requireApproval: e.requireApproval, allowWaitlist: e.allowWaitlist,
         ageMin: e.ageMin || "", ageMax: e.ageMax || "", genderLimit: e.genderLimit, allowPlusOne: e.allowPlusOne,
         isPrivate: e.isPrivate, tags: e.tags || [],
@@ -44,16 +44,17 @@ export function EventEditClient({ id }: { id: string }) {
     } finally { setUploading(false); }
   }
 
-  function toggleTag(tag: string) {
-    setForm((f: any) => ({ ...f, tags: f.tags.includes(tag) ? f.tags.filter((t: string) => t !== tag) : [...f.tags, tag] }));
-  }
-
   async function submit(e: React.FormEvent) {
     e.preventDefault();
-    setSaving(true);
     setError("");
+    if (!form.capacity || Number(form.capacity) < 1) {
+      setError("請輸入名額上限");
+      return;
+    }
+    setSaving(true);
     try {
-      const res = await fetch(`/api/events/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(form) });
+      const payload = { ...form, capacity: Number(form.capacity), fee: form.fee ? Number(form.fee) : 0 };
+      const res = await fetch(`/api/events/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
       const d = await res.json();
       if (!res.ok) { setError(d.error); return; }
       router.push(`/events/${id}`);
@@ -82,21 +83,14 @@ export function EventEditClient({ id }: { id: string }) {
             </div>
           </label>
 
-          <Field label="活動名稱"><input required value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} className="input" /></Field>
-          <Field label="活動介紹"><textarea required rows={5} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className="input" /></Field>
-          <Field label="標籤">
-            <div className="flex flex-wrap gap-2">
-              {EVENT_TAGS.map((tag) => (
-                <button key={tag} type="button" onClick={() => toggleTag(tag)} className={`rounded-full px-3 py-1.5 text-xs font-bold ${form.tags.includes(tag) ? "bg-brand-500 text-white" : "bg-app-soft text-soft"}`}>#{tag}</button>
-              ))}
-            </div>
-          </Field>
+          <Field label="活動名稱" required><input required value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} className="input" /></Field>
+          <Field label="活動介紹" required><textarea required rows={5} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className="input" /></Field>
         </div>
 
         <div className="card-surface flex flex-col gap-4 rounded-3xl p-5 md:p-6">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-            <Field label="活動日期"><input required type="date" value={form.eventDate} onChange={(e) => setForm({ ...form, eventDate: e.target.value })} className="input" /></Field>
-            <Field label="開始時間"><input required type="time" value={form.startTime} onChange={(e) => setForm({ ...form, startTime: e.target.value })} className="input" /></Field>
+            <Field label="活動日期" required><input required type="date" value={form.eventDate} onChange={(e) => setForm({ ...form, eventDate: e.target.value })} className="input" /></Field>
+            <Field label="開始時間" required><input required type="time" value={form.startTime} onChange={(e) => setForm({ ...form, startTime: e.target.value })} className="input" /></Field>
             <Field label="結束時間"><input type="time" value={form.endTime} onChange={(e) => setForm({ ...form, endTime: e.target.value })} className="input" /></Field>
           </div>
           <Field label="地區">
@@ -104,16 +98,20 @@ export function EventEditClient({ id }: { id: string }) {
               {REGIONS.map((r) => <option key={r} value={r}>{r}</option>)}
             </select>
           </Field>
-          <Field label="集合地點"><input required value={form.meetingLocation} onChange={(e) => setForm({ ...form, meetingLocation: e.target.value })} className="input" /></Field>
+          <Field label="集合地點" required><input required value={form.meetingLocation} onChange={(e) => setForm({ ...form, meetingLocation: e.target.value })} className="input" /></Field>
           <Field label="Google 地圖位置"><input value={form.mapAddress} onChange={(e) => setForm({ ...form, mapAddress: e.target.value })} className="input" /></Field>
         </div>
 
         <div className="card-surface flex flex-col gap-4 rounded-3xl p-5 md:p-6">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <Field label="名額上限"><input required type="number" min={1} value={form.capacity} onChange={(e) => setForm({ ...form, capacity: Number(e.target.value) })} className="input" /></Field>
-            <Field label="費用"><input type="number" min={0} value={form.fee} onChange={(e) => setForm({ ...form, fee: Number(e.target.value) })} className="input" /></Field>
+            <Field label="名額上限" required>
+              <input required type="number" min={1} value={form.capacity} onChange={(e) => setForm({ ...form, capacity: e.target.value })} className="input" placeholder="例如：10" />
+            </Field>
+            <Field label="費用（NT$）">
+              <input type="number" min={0} value={form.fee} onChange={(e) => setForm({ ...form, fee: e.target.value })} className="input" placeholder="留空表示免費" />
+            </Field>
           </div>
-          <Field label="聯絡方式"><input required value={form.contactInfo} onChange={(e) => setForm({ ...form, contactInfo: e.target.value })} className="input" /></Field>
+          <Field label="聯絡方式" required><input required value={form.contactInfo} onChange={(e) => setForm({ ...form, contactInfo: e.target.value })} className="input" /></Field>
           <Field label="注意事項"><textarea rows={3} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} className="input" /></Field>
         </div>
 
@@ -129,10 +127,12 @@ export function EventEditClient({ id }: { id: string }) {
   );
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function Field({ label, required, children }: { label: string; required?: boolean; children: React.ReactNode }) {
   return (
     <label className="flex flex-col gap-1.5 text-sm">
-      <span className="text-xs font-semibold text-soft">{label}</span>
+      <span className="text-xs font-semibold text-soft">
+        {label} {required && <span className="text-rose-500">*</span>}
+      </span>
       {children}
     </label>
   );

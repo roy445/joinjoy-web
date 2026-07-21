@@ -1,7 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { writeFile, mkdir } from "fs/promises";
-import path from "path";
-import crypto from "crypto";
 import { requireUser } from "@/lib/auth";
 import { errorResponse } from "@/lib/api";
 import { rateLimit, clientKey, isSameOrigin } from "@/lib/security";
@@ -13,7 +10,8 @@ const ALLOWED_TYPES: Record<string, { ext: string; magic: number[][] }> = {
   "image/gif": { ext: "gif", magic: [[0x47, 0x49, 0x46, 0x38]] },
 };
 
-const MAX_SIZE = 6 * 1024 * 1024; // 6MB
+// Kept comfortably under Vercel's ~4.5MB serverless request body limit.
+const MAX_SIZE = 4 * 1024 * 1024; // 4MB
 
 function checkMagicBytes(buffer: Buffer, type: string) {
   const config = ALLOWED_TYPES[type];
@@ -33,7 +31,7 @@ export async function POST(req: NextRequest) {
     const file = formData.get("file");
     if (!(file instanceof File)) throw new Error("請選擇檔案");
     if (file.size === 0) throw new Error("檔案是空的");
-    if (file.size > MAX_SIZE) throw new Error("圖片檔案不可超過 6MB");
+    if (file.size > MAX_SIZE) throw new Error("圖片檔案不可超過 4MB");
     if (!ALLOWED_TYPES[file.type]) throw new Error("僅支援 JPG、PNG、WEBP、GIF 圖片格式");
 
     const buffer = Buffer.from(await file.arrayBuffer());
@@ -41,12 +39,15 @@ export async function POST(req: NextRequest) {
       throw new Error("圖片內容驗證失敗，檔案可能已損毀或偽裝格式，已封鎖上傳");
     }
 
-    const uploadDir = path.join(process.cwd(), "public", "uploads");
-    await mkdir(uploadDir, { recursive: true });
-    const filename = `${Date.now()}-${crypto.randomBytes(8).toString("hex")}.${ALLOWED_TYPES[file.type].ext}`;
-    await writeFile(path.join(uploadDir, filename), buffer);
+    // Store the image directly as a base64 data URI in the database instead of
+    // writing to the local filesystem. Serverless platforms like Vercel run
+    // functions on a read-only, ephemeral filesystem, so writing files to
+    // `public/uploads` works locally but silently fails (or disappears) in
+    // production. Embedding the image as a data URI works identically in
+    // both environments and persists permanently in the database.
+    const dataUrl = `data:${file.type};base64,${buffer.toString("base64")}`;
 
-    return NextResponse.json({ ok: true, url: `/uploads/${filename}` });
+    return NextResponse.json({ ok: true, url: dataUrl });
   } catch (err) {
     return errorResponse(err);
   }
