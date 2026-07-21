@@ -29,6 +29,9 @@ export const users = pgTable("users", {
   canCreateEvent: boolean("can_create_event").notNull().default(false),
   eventCreateCredits: integer("event_create_credits").notNull().default(0),
   hostGuidelinesAgreedAt: timestamp("host_guidelines_agreed_at"),
+  canCreateGroup: boolean("can_create_group").notNull().default(false),
+  groupCreateCredits: integer("group_create_credits").notNull().default(0),
+  groupGuidelinesAgreedAt: timestamp("group_guidelines_agreed_at"),
   creditScore: numeric("credit_score", { precision: 6, scale: 2 }).notNull().default("100"),
   isBlacklisted: boolean("is_blacklisted").notNull().default(false),
   noShowCount: integer("no_show_count").notNull().default(0),
@@ -55,10 +58,11 @@ export const passwordResetTokens = pgTable("password_reset_tokens", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
-// ---------- One-time codes for creating events ----------
+// ---------- One-time codes for creating events / groups ----------
 export const oneTimeCodes = pgTable("one_time_codes", {
   id: serial("id").primaryKey(),
   code: varchar("code", { length: 40 }).notNull().unique(),
+  type: varchar("type", { length: 20 }).notNull().default("event"), // event | group
   createdBy: integer("created_by").notNull().references(() => users.id),
   usedBy: integer("used_by").references(() => users.id),
   usedAt: timestamp("used_at"),
@@ -77,6 +81,46 @@ export const createEventRequests = pgTable("create_event_requests", {
   reviewedAt: timestamp("reviewed_at"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
+
+// ---------- Requests to gain create-group permission ----------
+export const createGroupRequests = pgTable("create_group_requests", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  reason: text("reason").notNull(),
+  status: varchar("status", { length: 20 }).notNull().default("pending"), // pending | approved | rejected
+  reviewedBy: integer("reviewed_by").references(() => users.id),
+  reviewedAt: timestamp("reviewed_at"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// ---------- Groups (private/public communities that can scope events) ----------
+export const groups = pgTable("groups", {
+  id: serial("id").primaryKey(),
+  name: varchar("name", { length: 100 }).notNull(),
+  description: text("description").notNull(),
+  coverImageUrl: text("cover_image_url"),
+  isPrivate: boolean("is_private").notNull().default(true),
+  inviteCode: varchar("invite_code", { length: 20 }).notNull().unique(),
+  ownerId: integer("owner_id").notNull().references(() => users.id),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const groupMembers = pgTable(
+  "group_members",
+  {
+    id: serial("id").primaryKey(),
+    groupId: integer("group_id").notNull().references(() => groups.id, { onDelete: "cascade" }),
+    userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    role: varchar("role", { length: 20 }).notNull().default("member"), // owner | member
+    status: varchar("status", { length: 20 }).notNull().default("pending"), // pending | approved | rejected
+    joinedAt: timestamp("joined_at").notNull().defaultNow(),
+  },
+  (table) => ({
+    groupIdx: index("group_members_group_idx").on(table.groupId),
+    userIdx: index("group_members_user_idx").on(table.userId),
+  })
+);
 
 // ---------- Events ----------
 export const events = pgTable(
@@ -110,6 +154,7 @@ export const events = pgTable(
     status: varchar("status", { length: 20 }).notNull().default("upcoming"), // upcoming|ongoing|completed|cancelled
     cancelReason: text("cancel_reason"),
     hostId: integer("host_id").notNull().references(() => users.id),
+    groupId: integer("group_id").references(() => groups.id, { onDelete: "set null" }),
     viewCount: integer("view_count").notNull().default(0),
     reminderSentAt: timestamp("reminder_sent_at"),
     createdAt: timestamp("created_at").notNull().defaultNow(),

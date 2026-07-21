@@ -1,53 +1,67 @@
 import Link from "next/link";
 import { db } from "@/db";
 import { events, users, eventParticipants, siteAnnouncements } from "@/db/schema";
-import { eq, ne, sql, desc, asc, and } from "drizzle-orm";
+import { eq, ne, sql, desc, asc, and, ilike, or, isNull } from "drizzle-orm";
 import { ensureSeeded } from "@/lib/seed";
+import { autoUpdateEventStatuses } from "@/lib/event-status";
 import { SearchBar } from "@/components/search-bar";
-import { SectionTitle } from "@/components/ui";
+import { SectionTitle, EmptyState } from "@/components/ui";
 import { EventCard } from "@/components/event-card";
 import { RecommendedSection } from "@/components/recommended-section";
 import { ArrowUpRight, Megaphone } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
+const participantCountSub = db
+  .select({ eventId: eventParticipants.eventId, count: sql<number>`count(*)`.as("count") })
+  .from(eventParticipants)
+  .where(eq(eventParticipants.status, "approved"))
+  .groupBy(eventParticipants.eventId)
+  .as("pc");
+
+const baseSelect = () =>
+  db
+    .select({
+      id: events.id,
+      title: events.title,
+      coverImageUrl: events.coverImageUrl,
+      eventDate: events.eventDate,
+      startTime: events.startTime,
+      meetingLocation: events.meetingLocation,
+      region: events.region,
+      capacity: events.capacity,
+      fee: events.fee,
+      status: events.status,
+      tags: events.tags,
+      hostName: users.name,
+      hostAvatar: users.avatarUrl,
+      participantCount: sql<number>`coalesce(${participantCountSub.count}, 0)`,
+    })
+    .from(events)
+    .leftJoin(users, eq(events.hostId, users.id))
+    .leftJoin(participantCountSub, eq(participantCountSub.eventId, events.id));
+
 async function getSections() {
   await ensureSeeded();
+  await autoUpdateEventStatuses();
 
-  const participantCountSub = db
-    .select({ eventId: eventParticipants.eventId, count: sql<number>`count(*)`.as("count") })
-    .from(eventParticipants)
-    .where(eq(eventParticipants.status, "approved"))
-    .groupBy(eventParticipants.eventId)
-    .as("pc");
-
-  const baseSelect = () =>
-    db
-      .select({
-        id: events.id,
-        title: events.title,
-        coverImageUrl: events.coverImageUrl,
-        eventDate: events.eventDate,
-        startTime: events.startTime,
-        meetingLocation: events.meetingLocation,
-        region: events.region,
-        capacity: events.capacity,
-        fee: events.fee,
-        status: events.status,
-        tags: events.tags,
-        hostName: users.name,
-        hostAvatar: users.avatarUrl,
-        participantCount: sql<number>`coalesce(${participantCountSub.count}, 0)`,
-      })
-      .from(events)
-      .leftJoin(users, eq(events.hostId, users.id))
-      .leftJoin(participantCountSub, eq(participantCountSub.eventId, events.id))
-      .where(and(eq(events.isPrivate, false), ne(events.status, "cancelled"), ne(events.status, "completed")));
+  // Events published exclusively inside a group are excluded from the
+  // public homepage — they only ever appear inside that group's page.
+  const publicScope = isNull(events.groupId);
 
   const [hot, latest, upcoming, activeCount, announcement] = await Promise.all([
-    baseSelect().orderBy(desc(sql`coalesce(${participantCountSub.count}, 0)`)).limit(4),
-    baseSelect().orderBy(desc(events.createdAt)).limit(4),
-    baseSelect().orderBy(asc(events.eventDate)).limit(4),
+    baseSelect()
+      .where(and(eq(events.isPrivate, false), publicScope, ne(events.status, "cancelled"), ne(events.status, "completed")))
+      .orderBy(desc(sql`coalesce(${participantCountSub.count}, 0)`))
+      .limit(4),
+    baseSelect()
+      .where(and(eq(events.isPrivate, false), publicScope, ne(events.status, "cancelled"), ne(events.status, "completed")))
+      .orderBy(desc(events.createdAt))
+      .limit(4),
+    baseSelect()
+      .where(and(eq(events.isPrivate, false), publicScope, ne(events.status, "cancelled"), ne(events.status, "completed")))
+      .orderBy(asc(events.eventDate))
+      .limit(4),
     db.select({ count: sql<number>`count(*)` }).from(events).where(ne(events.status, "cancelled")),
     db.select().from(siteAnnouncements).where(eq(siteAnnouncements.isActive, true)).orderBy(desc(siteAnnouncements.createdAt)).limit(1),
   ]);
@@ -55,8 +69,45 @@ async function getSections() {
   return { hot, latest, upcoming, activeCount: Number(activeCount[0]?.count ?? 0), announcement: announcement[0] ?? null };
 }
 
-export default async function HomePage() {
+async function runSearch(params: { q?: string; region?: string; date?: string; sort?: string }) {
+  const conditions = [eq(events.isPrivate, false), isNull(events.groupId), ne(events.status, "cancelled")];
+  if (params.q) {
+    conditions.push(
+      or(
+        ilike(events.title, `%${params.q}%`),
+        ilike(events.description, `%${params.q}%`),
+        ilike(events.meetingLocation, `%${params.q}%`)
+      )!
+    );
+  }
+  if (params.region) conditions.push(eq(events.region, params.region));
+  if (params.date) conditions.push(eq(events.eventDate, params.date));
+
+  let orderBy = desc(events.createdAt);
+  if (params.sort === "popular") orderBy = desc(sql`coalesce(${participantCountSub.count}, 0)`);
+  if (params.sort === "upcoming") orderBy = asc(events.eventDate);
+
+  const results = await baseSelect().where(and(...conditions)).orderBy(orderBy).limit(24);
+  return results;
+}
+
+function searchResultTitle(params: { q?: string; region?: string; date?: string; sort?: string }) {
+  if (params.sort === "popular") return { eyebrow: "TRENDING NOW", title: "🔥 熱門活動" };
+  if (params.sort === "upcoming") return { eyebrow: "DON'T MISS OUT", title: "⏰ 即將開始的活動" };
+  if (params.q) return { eyebrow: "SEARCH RESULTS", title: `🔍 「${params.q}」的搜尋結果` };
+  return { eyebrow: "FILTERED", title: "🔍 篩選結果" };
+}
+
+export default async function HomePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string; region?: string; date?: string; sort?: string }>;
+}) {
+  const params = await searchParams;
+  const hasFilters = !!(params.q || params.region || params.date || params.sort);
+
   const { hot, latest, upcoming, activeCount, announcement } = await getSections();
+  const searchResults = hasFilters ? await runSearch(params) : [];
 
   return (
     <div className="mx-auto flex max-w-7xl flex-col gap-10 px-4 py-6 md:px-8 md:py-8">
@@ -82,7 +133,7 @@ export default async function HomePage() {
             <p className="mt-4 text-sm text-soft md:text-base">
               目前有 {activeCount} 個正在發生的活動，找到和你頻率相同的好咖。
             </p>
-            <Link href="/explore?sort=popular" className="btn-coral mt-6 inline-flex items-center gap-2 rounded-full px-6 py-3 text-sm font-bold">
+            <Link href="/?sort=popular#search-results" className="btn-coral mt-6 inline-flex items-center gap-2 rounded-full px-6 py-3 text-sm font-bold">
               探索熱門活動 <ArrowUpRight size={16} />
             </Link>
           </div>
@@ -98,32 +149,50 @@ export default async function HomePage() {
         </div>
       </section>
 
+      {hasFilters && (
+        <section id="search-results" className="scroll-mt-24">
+          <SectionTitle
+            eyebrow={searchResultTitle(params).eyebrow}
+            title={searchResultTitle(params).title}
+            action={<Link href="/" className="text-sm font-semibold text-brand-600">清除篩選</Link>}
+          />
+          {searchResults.length === 0 ? (
+            <EmptyState icon="🔍" title="找不到符合條件的活動" subtitle="試試調整搜尋關鍵字或篩選條件" />
+          ) : (
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              {searchResults.map((e) => <EventCard key={e.id} event={e} />)}
+            </div>
+          )}
+        </section>
+      )}
+
       <RecommendedSection />
 
       <section>
-        <SectionTitle eyebrow="TRENDING NOW" title="🔥 熱門活動" action={<Link href="/explore?sort=popular" className="flex items-center gap-1 text-sm font-semibold text-brand-600">更多 <ArrowUpRight size={14} /></Link>} />
+        <SectionTitle eyebrow="TRENDING NOW" title="🔥 熱門活動" action={<Link href="/?sort=popular#search-results" className="flex items-center gap-1 text-sm font-semibold text-brand-600">更多 <ArrowUpRight size={14} /></Link>} />
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {hot.map((e) => <EventCard key={e.id} event={e} />)}
         </div>
       </section>
 
       <section>
-        <SectionTitle eyebrow="JUST ANNOUNCED" title="🆕 最新活動" action={<Link href="/explore?sort=latest" className="flex items-center gap-1 text-sm font-semibold text-brand-600">更多 <ArrowUpRight size={14} /></Link>} />
+        <SectionTitle eyebrow="JUST ANNOUNCED" title="🆕 最新活動" action={<Link href="/?sort=latest#search-results" className="flex items-center gap-1 text-sm font-semibold text-brand-600">更多 <ArrowUpRight size={14} /></Link>} />
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {latest.map((e) => <EventCard key={e.id} event={e} />)}
         </div>
       </section>
 
       <section>
-        <SectionTitle eyebrow="DON'T MISS OUT" title="⏰ 即將開始" action={<Link href="/explore?sort=upcoming" className="flex items-center gap-1 text-sm font-semibold text-brand-600">更多 <ArrowUpRight size={14} /></Link>} />
+        <SectionTitle eyebrow="DON'T MISS OUT" title="⏰ 即將開始" action={<Link href="/?sort=upcoming#search-results" className="flex items-center gap-1 text-sm font-semibold text-brand-600">更多 <ArrowUpRight size={14} /></Link>} />
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {upcoming.map((e) => <EventCard key={e.id} event={e} />)}
         </div>
       </section>
 
-      <section className="grid grid-cols-1 gap-4 md:grid-cols-3">
+      <section className="grid grid-cols-1 gap-4 md:grid-cols-4">
         {[
           { href: "/map", icon: "🗺️", title: "地圖模式", desc: "在地圖上探索附近活動" },
+          { href: "/groups", icon: "👥", title: "揪團社", desc: "找到並加入私人社團" },
           { href: "/leaderboard", icon: "🏆", title: "排行榜", desc: "看看誰是本月人氣揪主" },
           { href: "/legal/guidelines", icon: "🛡️", title: "社群公約", desc: "了解報名與黑名單規範" },
         ].map((item) => (

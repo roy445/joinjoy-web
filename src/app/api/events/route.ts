@@ -1,12 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
-import { events, users, eventParticipants, favorites } from "@/db/schema";
-import { and, eq, gte, lte, sql, desc, asc, ilike, or, ne } from "drizzle-orm";
+import { events, users, eventParticipants, favorites, groupMembers } from "@/db/schema";
+import { and, eq, gte, lte, sql, desc, asc, ilike, or, ne, isNull } from "drizzle-orm";
 import { requireUser, getCurrentUser } from "@/lib/auth";
 import { errorResponse } from "@/lib/api";
 import { sanitize, rateLimit, clientKey, isSameOrigin } from "@/lib/security";
+import { autoUpdateEventStatuses } from "@/lib/event-status";
 
 export async function GET(req: NextRequest) {
+  await autoUpdateEventStatuses();
+
   const sp = req.nextUrl.searchParams;
   const q = sp.get("q")?.trim();
   const region = sp.get("region");
@@ -22,7 +25,9 @@ export async function GET(req: NextRequest) {
   const page = Math.max(1, Number(sp.get("page") || 1));
   const limit = Math.min(48, Math.max(1, Number(sp.get("limit") || 12)));
 
-  const conditions = [eq(events.isPrivate, false)];
+  // Group-scoped events are only discoverable from within their group page,
+  // never through the public listing/search/map.
+  const conditions = [eq(events.isPrivate, false), isNull(events.groupId)];
   if (mine) conditions.length = 0; // handled separately below
 
   if (q) {
@@ -126,8 +131,23 @@ export async function POST(req: NextRequest) {
     if (!startTime) throw new Error("請選擇開始時間");
     if (!meetingLocation) throw new Error("請輸入集合地點");
     if (!contactInfo) throw new Error("請輸入聯絡方式");
+    if (!body.capacity || Number(body.capacity) < 1) throw new Error("請輸入名額上限");
 
-    const capacity = Math.max(1, Math.min(1000, Number(body.capacity) || 10));
+    const capacity = Math.max(1, Math.min(1000, Number(body.capacity)));
+
+    // If publishing exclusively within a group, verify approved membership.
+    let groupId: number | null = null;
+    if (body.groupId) {
+      const [membership] = await db
+        .select({ status: groupMembers.status })
+        .from(groupMembers)
+        .where(and(eq(groupMembers.groupId, Number(body.groupId)), eq(groupMembers.userId, user.id)))
+        .limit(1);
+      if (!membership || membership.status !== "approved") {
+        throw new Error("您不是該社團的成員，無法將活動發佈到此社團");
+      }
+      groupId = Number(body.groupId);
+    }
 
     const [created] = await db
       .insert(events)
@@ -154,9 +174,10 @@ export async function POST(req: NextRequest) {
         ageMax: body.ageMax ? Number(body.ageMax) : null,
         genderLimit: ["any", "male", "female"].includes(body.genderLimit) ? body.genderLimit : "any",
         allowPlusOne: !!body.allowPlusOne,
-        isPrivate: !!body.isPrivate,
+        isPrivate: groupId ? true : !!body.isPrivate,
         tags: Array.isArray(body.tags) ? body.tags.slice(0, 8) : [],
         hostId: user.id,
+        groupId,
       })
       .returning();
 

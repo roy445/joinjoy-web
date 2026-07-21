@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Loader2, ImagePlus, KeyRound, Send, CheckCircle2, BookOpenCheck } from "lucide-react";
 import { REGIONS } from "@/lib/constants";
 import { SectionTitle } from "@/components/ui";
@@ -9,8 +9,10 @@ import { HostGuidelinesModal } from "@/components/host-guidelines-modal";
 
 type Permission = { canCreateEvent: boolean; credits: number; isAdmin: boolean; hasAgreedHostGuidelines: boolean };
 
-export default function CreateEventPage() {
+function CreateEventInner() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const presetGroupId = searchParams.get("groupId");
   const [me, setMe] = useState<any>(null);
   const [permission, setPermission] = useState<Permission | null>(null);
   const [loading, setLoading] = useState(true);
@@ -57,7 +59,7 @@ export default function CreateEventPage() {
           </button>
         </div>
       ) : hasPermission ? (
-        <EventForm credits={permission?.credits ?? 0} isAdmin={!!permission?.isAdmin} />
+        <EventForm credits={permission?.credits ?? 0} isAdmin={!!permission?.isAdmin} presetGroupId={presetGroupId} />
       ) : (
         <PermissionGate onGranted={() => setPermission({ ...(permission as Permission), credits: (permission?.credits ?? 0) + 1 })} />
       )}
@@ -72,6 +74,14 @@ export default function CreateEventPage() {
         />
       )}
     </div>
+  );
+}
+
+export default function CreateEventPage() {
+  return (
+    <Suspense>
+      <CreateEventInner />
+    </Suspense>
   );
 }
 
@@ -158,15 +168,19 @@ const defaultForm = {
   region: "台北市", eventDate: "", startTime: "", endTime: "", meetingLocation: "", mapAddress: "",
   capacity: "", fee: "", contactInfo: "", notes: "",
   requireApproval: false, allowWaitlist: true, ageMin: "", ageMax: "", genderLimit: "any",
-  allowPlusOne: false, isPrivate: false,
+  allowPlusOne: false, isPrivate: false, groupId: "",
 };
 
-function EventForm({ credits, isAdmin }: { credits: number; isAdmin: boolean }) {
+function EventForm({ credits, isAdmin, presetGroupId }: { credits: number; isAdmin: boolean; presetGroupId?: string | null }) {
   const router = useRouter();
-  const [form, setForm] = useState(defaultForm);
+  const [form, setForm] = useState({ ...defaultForm, groupId: presetGroupId || "" });
   const [uploading, setUploading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [myGroups, setMyGroups] = useState<{ id: number; name: string }[]>([]);
+  useEffect(() => {
+    fetch("/api/groups/mine").then((r) => (r.ok ? r.json() : { groups: [] })).then((d) => setMyGroups(d.groups || []));
+  }, []);
 
   async function handleUpload(file: File, cover: boolean) {
     setUploading(true);
@@ -190,7 +204,7 @@ function EventForm({ credits, isAdmin }: { credits: number; isAdmin: boolean }) 
     }
     setSubmitting(true);
     try {
-      const payload = { ...form, capacity: Number(form.capacity), fee: form.fee ? Number(form.fee) : 0 };
+      const payload = { ...form, capacity: Number(form.capacity), fee: form.fee ? Number(form.fee) : 0, groupId: form.groupId ? Number(form.groupId) : null };
       const res = await fetch("/api/events", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
       const d = await res.json();
       if (!res.ok) { setError(d.error); return; }
@@ -306,8 +320,20 @@ function EventForm({ credits, isAdmin }: { credits: number; isAdmin: boolean }) 
           <ToggleField label="需要審核加入" checked={form.requireApproval} onChange={(v) => setForm({ ...form, requireApproval: v })} />
           <ToggleField label="允許候補" checked={form.allowWaitlist} onChange={(v) => setForm({ ...form, allowWaitlist: v })} />
           <ToggleField label="允許攜伴" checked={form.allowPlusOne} onChange={(v) => setForm({ ...form, allowPlusOne: v })} />
-          <ToggleField label="私人活動" checked={form.isPrivate} onChange={(v) => setForm({ ...form, isPrivate: v })} />
+          <ToggleField label="私人活動" checked={!!form.groupId || form.isPrivate} onChange={(v) => setForm({ ...form, isPrivate: v })} />
         </div>
+
+        {myGroups.length > 0 && (
+          <Field label="發佈範圍">
+            <select value={form.groupId} onChange={(e) => setForm({ ...form, groupId: e.target.value })} className="input">
+              <option value="">🌐 公開活動（首頁、搜尋都看得到）</option>
+              {myGroups.map((g) => (
+                <option key={g.id} value={g.id}>👥 僅發佈在社團：{g.name}</option>
+              ))}
+            </select>
+            <p className="mt-1 text-xs text-soft">選擇社團後，此活動只有該社團的成員能看到與報名，不會出現在首頁或公開搜尋。</p>
+          </Field>
+        )}
       </FormSection>
 
       <button disabled={submitting || uploading} type="submit" className="btn-coral flex items-center justify-center gap-2 rounded-full py-3.5 text-base font-bold disabled:opacity-50">

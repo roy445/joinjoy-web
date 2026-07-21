@@ -16,6 +16,7 @@ import {
   X,
   LogOut,
   PlusCircle,
+  Users,
 } from "lucide-react";
 import { Logo } from "@/components/logo";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -26,6 +27,7 @@ import { cn } from "@/lib/utils";
 const exploreNav = [
   { href: "/", label: "首頁", icon: Home },
   { href: "/map", label: "地圖模式", icon: MapPin },
+  { href: "/groups", label: "揪團社", icon: Users },
   { href: "/favorites", label: "我的收藏", icon: Bookmark },
   { href: "/my-events", label: "我的活動", icon: CalendarCheck },
 ];
@@ -230,7 +232,7 @@ export function AppShell({ user, children }: { user: ClientUser | null; children
 
       {/* Mobile bottom nav */}
       <nav className="fixed inset-x-0 bottom-0 z-30 flex items-center justify-around border-t border-[var(--color-border)] bg-app/95 py-2 backdrop-blur-md md:hidden">
-        {[exploreNav[0], exploreNav[1], exploreNav[2], exploreNav[3], { href: "/notifications", label: "通知", icon: Bell }].map((item) => {
+        {[exploreNav[0], exploreNav[1], exploreNav[3], exploreNav[4], { href: "/notifications", label: "通知", icon: Bell }].map((item) => {
           const active = pathname === item.href;
           const Icon = item.icon;
           return (

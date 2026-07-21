@@ -9,6 +9,7 @@ import {
 import { formatDate, eventStatusLabel, genderLimitLabel, timeAgo } from "@/lib/utils";
 import { Badge, CreditBadge, BlacklistBadge, EmptyState } from "@/components/ui";
 import { REPORT_REASONS } from "@/lib/constants";
+import { ShareModal } from "@/components/share-modal";
 
 type Tab = "info" | "participants" | "map" | "comments" | "chat" | "announcements";
 
@@ -145,6 +146,7 @@ function InfoTile({ icon, label, value }: { icon: React.ReactNode; label: string
 function ActionButtons({ event, isFavorited, showToast, reload }: any) {
   const [fav, setFav] = useState(isFavorited);
   const [showReport, setShowReport] = useState(false);
+  const [showShare, setShowShare] = useState(false);
 
   async function toggleFavorite() {
     const res = await fetch(`/api/events/${event.id}/favorite`, { method: "POST" });
@@ -153,28 +155,19 @@ function ActionButtons({ event, isFavorited, showToast, reload }: any) {
     else showToast(d.error);
   }
 
-  async function share() {
-    const url = window.location.href;
-    if (navigator.share) {
-      try { await navigator.share({ title: event.title, url }); } catch {}
-    } else {
-      await navigator.clipboard.writeText(url);
-      showToast("連結已複製！");
-    }
-  }
-
   return (
     <div className="flex gap-2">
       <button onClick={toggleFavorite} className={`flex h-10 w-10 items-center justify-center rounded-full backdrop-blur transition ${fav ? "bg-coral-500 text-white" : "bg-white/80 text-coral-500"}`}>
         <Heart size={18} fill={fav ? "white" : "none"} />
       </button>
-      <button onClick={share} className="flex h-10 w-10 items-center justify-center rounded-full bg-white/80 text-main backdrop-blur">
+      <button onClick={() => setShowShare(true)} className="flex h-10 w-10 items-center justify-center rounded-full bg-white/80 text-main backdrop-blur">
         <Share2 size={18} />
       </button>
       <button onClick={() => setShowReport(true)} className="flex h-10 w-10 items-center justify-center rounded-full bg-white/80 text-rose-500 backdrop-blur">
         <Flag size={18} />
       </button>
       {showReport && <ReportModal eventId={event.id} onClose={() => setShowReport(false)} showToast={showToast} />}
+      {showShare && <ShareModal title={event.title} onClose={() => setShowShare(false)} />}
     </div>
   );
 }
@@ -334,7 +327,7 @@ function InfoTab({ event, isOwner, isAdmin, showToast, reload }: any) {
   const [showCancelModal, setShowCancelModal] = useState(false);
 
   async function deleteEvent() {
-    if (!confirm("確定要永久刪除這個活動嗎？此操作無法復原。")) return;
+    if (!confirm("確定要永久刪除這個活動嗎？此操作無法復原。")) return;    if (!confirm("確定要永久刪除這個活動嗎？此操作無法復原。")) return;
     const res = await fetch(`/api/events/${event.id}`, { method: "DELETE" });
     if (res.ok) window.location.href = "/my-events";
   }
@@ -466,6 +459,7 @@ function DetailRow({ label, value }: { label: string; value: string }) {
     </div>
   );
 }
+
 function ParticipantsTab({ event, participants, waitlist, pending, isOwner, me, showToast, reload }: any) {
   async function act(participantId: number, action: string) {
     const res = await fetch(`/api/events/${event.id}/participants/${participantId}`, {
@@ -515,14 +509,17 @@ function ParticipantsTab({ event, participants, waitlist, pending, isOwner, me, 
                     {p.isBlacklisted && <BlacklistBadge />}
                   </div>
                 </Link>
-                {isOwner ? (
-                  <div className="flex gap-1">
-                    <button onClick={() => act(p.id, "attended")} title="標記出席" className="rounded-full bg-brand-500/10 p-1.5 text-brand-600"><Check size={14} /></button>
-                    <button onClick={() => act(p.id, "absent")} title="標記未出席" className="rounded-full bg-rose-500/10 p-1.5 text-rose-500"><X size={14} /></button>
-                  </div>
-                ) : me && event.status === "completed" && me.id !== p.userId ? (
-                  <RateButton eventId={event.id} rateeId={p.userId} rateeName={p.name} showToast={showToast} />
-                ) : null}
+                <div className="flex items-center gap-1.5">
+                  {isOwner && (
+                    <>
+                      <button onClick={() => act(p.id, "attended")} title="標記出席" className="rounded-full bg-brand-500/10 p-1.5 text-brand-600"><Check size={14} /></button>
+                      <button onClick={() => act(p.id, "absent")} title="標記未出席" className="rounded-full bg-rose-500/10 p-1.5 text-rose-500"><X size={14} /></button>
+                    </>
+                  )}
+                  {me && event.status === "completed" && me.id !== p.userId && (
+                    <RateButton eventId={event.id} rateeId={p.userId} rateeName={p.name} showToast={showToast} />
+                  )}
+                </div>
               </div>
             ))}
           </div>
@@ -609,7 +606,6 @@ function MapTab({ event }: any) {
     </div>
   );
 }
-
 function CommentsTab({ eventId, me }: any) {
   const [comments, setComments] = useState<any[]>([]);
   const [content, setContent] = useState("");
