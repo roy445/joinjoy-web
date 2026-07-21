@@ -106,30 +106,54 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     const body = await req.json().catch(() => null);
     if (!body) throw new Error("格式錯誤");
 
+    const wasCancelled = body.status === "cancelled" && record.event.status !== "cancelled";
+    const isAdmin = user.role === "admin";
+
+    // Lock non-cancellation edits within 24 hours of the event's start time,
+    // to protect participants who already committed to the plan. Cancelling
+    // (with a required reason) remains allowed even inside this window, and
+    // admins can always override the lock.
+    if (!isAdmin && !wasCancelled) {
+      const startAt = new Date(`${record.event.eventDate}T${record.event.startTime}:00`);
+      const hoursUntilStart = (startAt.getTime() - Date.now()) / (1000 * 60 * 60);
+      const attemptingContentEdit = Object.keys(body).some((k) => k !== "status");
+      if (attemptingContentEdit && hoursUntilStart < 24) {
+        throw new Error("活動即將於 24 小時內開始（或已經開始），已無法修改活動資訊。如需異動請使用「取消活動」功能並說明原因");
+      }
+    }
+
+    if (wasCancelled) {
+      const reason = sanitize(String(body.cancelReason || ""), 500);
+      if (!reason || reason.length < 5) throw new Error("請填寫取消活動的原因（至少 5 個字）");
+    }
+
     const updates: Record<string, unknown> = { updatedAt: new Date() };
     const allowedFields = [
       "title", "description", "coverImageUrl", "images", "eventDate", "startTime", "endTime",
       "meetingLocation", "mapAddress", "lat", "lng", "capacity", "fee", "contactInfo", "notes",
       "requireApproval", "allowWaitlist", "ageMin", "ageMax", "genderLimit", "allowPlusOne",
-      "isPrivate", "tags", "status", "region",
+      "isPrivate", "tags", "status", "region", "cancelReason",
     ];
     for (const field of allowedFields) {
       if (field in body) updates[field] = body[field];
     }
     if (typeof updates.title === "string") updates.title = sanitize(updates.title, 150);
     if (typeof updates.description === "string") updates.description = sanitize(updates.description, 5000);
+    if (typeof updates.cancelReason === "string") updates.cancelReason = sanitize(updates.cancelReason, 500);
 
-    const wasCancelled = body.status === "cancelled" && record.event.status !== "cancelled";
     const dateChanged = (body.eventDate && body.eventDate !== record.event.eventDate) || (body.startTime && body.startTime !== record.event.startTime);
 
     await db.update(events).set(updates).where(eq(events.id, id));
 
     if (wasCancelled || dateChanged) {
       const participants = await db.select({ userId: eventParticipants.userId }).from(eventParticipants).where(and(eq(eventParticipants.eventId, id), eq(eventParticipants.status, "approved")));
+      const cancelReason = typeof updates.cancelReason === "string" ? updates.cancelReason : "";
       await notifyMany(participants.map((p) => p.userId).filter((uid) => uid !== user.id), {
         type: wasCancelled ? "event_cancelled" : "event_time_changed",
         title: wasCancelled ? "活動已取消" : "活動時間異動",
-        content: `「${record.event.title}」${wasCancelled ? "已被主辦人取消" : "的時間已異動，請留意最新資訊"}`,
+        content: wasCancelled
+          ? `「${record.event.title}」已被主辦人取消。取消原因：${cancelReason}`
+          : `「${record.event.title}」的時間已異動，請留意最新資訊`,
         link: `/events/${id}`,
       });
     }

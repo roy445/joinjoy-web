@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, ImagePlus } from "lucide-react";
+import Link from "next/link";
+import { Loader2, ImagePlus, ShieldAlert } from "lucide-react";
 import { REGIONS } from "@/lib/constants";
 import { SectionTitle } from "@/components/ui";
 
@@ -13,12 +14,26 @@ export function EventEditClient({ id }: { id: string }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [uploading, setUploading] = useState(false);
+  const [locked, setLocked] = useState(false);
 
   useEffect(() => {
     fetch(`/api/events/${id}`).then((r) => r.json()).then((d) => {
       if (d.error) { setError(d.error); setLoading(false); return; }
       if (!d.isOwner && !d.isAdmin) { setError("您沒有權限編輯此活動"); setLoading(false); return; }
       const e = d.event;
+
+      // Mirror the server-side 24-hour edit lock so hosts see the message
+      // immediately instead of only discovering it after submitting.
+      if (!d.isAdmin && e.status !== "cancelled") {
+        const startAt = new Date(`${e.eventDate}T${e.startTime}:00`);
+        const hoursUntilStart = (startAt.getTime() - Date.now()) / (1000 * 60 * 60);
+        if (hoursUntilStart < 24) {
+          setLocked(true);
+          setLoading(false);
+          return;
+        }
+      }
+
       setForm({
         title: e.title, coverImageUrl: e.coverImageUrl, images: e.images || [], description: e.description,
         region: e.region || "台北市", eventDate: e.eventDate, startTime: e.startTime, endTime: e.endTime || "",
@@ -63,6 +78,23 @@ export function EventEditClient({ id }: { id: string }) {
 
   if (loading) return <div className="mx-auto max-w-3xl px-4 py-16 text-center"><Loader2 className="mx-auto animate-spin" /></div>;
   if (error && !form) return <div className="mx-auto max-w-3xl px-4 py-16 text-center text-soft">{error}</div>;
+
+  if (locked) {
+    return (
+      <div className="mx-auto max-w-2xl px-4 py-16">
+        <div className="card-surface flex flex-col items-center gap-3 rounded-3xl p-8 text-center">
+          <ShieldAlert size={32} className="text-amber-500" />
+          <h3 className="font-display text-lg font-bold text-main">活動即將開始，已無法編輯</h3>
+          <p className="text-sm text-soft">
+            此活動即將於 24 小時內開始（或已經開始），為保障已報名參加者的權益，活動資訊已被鎖定無法修改。
+            如需異動，請改用「取消活動」功能並說明原因，系統會自動通知所有報名者。
+          </p>
+          <Link href={`/events/${id}`} className="btn-brand mt-2 rounded-full px-6 py-2.5 text-sm font-bold">返回活動頁面</Link>
+        </div>
+      </div>
+    );
+  }
+
   if (!form) return null;
 
   return (

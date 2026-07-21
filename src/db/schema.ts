@@ -28,6 +28,7 @@ export const users = pgTable("users", {
   suspendReason: text("suspend_reason"),
   canCreateEvent: boolean("can_create_event").notNull().default(false),
   eventCreateCredits: integer("event_create_credits").notNull().default(0),
+  hostGuidelinesAgreedAt: timestamp("host_guidelines_agreed_at"),
   creditScore: numeric("credit_score", { precision: 6, scale: 2 }).notNull().default("100"),
   isBlacklisted: boolean("is_blacklisted").notNull().default(false),
   noShowCount: integer("no_show_count").notNull().default(0),
@@ -107,6 +108,7 @@ export const events = pgTable(
     isPrivate: boolean("is_private").notNull().default(false),
     tags: jsonb("tags").$type<string[]>().default([]),
     status: varchar("status", { length: 20 }).notNull().default("upcoming"), // upcoming|ongoing|completed|cancelled
+    cancelReason: text("cancel_reason"),
     hostId: integer("host_id").notNull().references(() => users.id),
     viewCount: integer("view_count").notNull().default(0),
     reminderSentAt: timestamp("reminder_sent_at"),

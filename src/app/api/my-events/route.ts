@@ -61,6 +61,7 @@ export async function GET(req: NextRequest) {
         canCreateEvent: fullUser.canCreateEvent,
         credits: fullUser.eventCreateCredits,
         isAdmin: user.role === "admin",
+        hasAgreedHostGuidelines: !!fullUser.hostGuidelinesAgreedAt,
       },
       requests,
     });

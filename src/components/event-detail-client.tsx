@@ -331,11 +331,8 @@ function JoinModal({ event, onClose, showToast, reload }: any) {
 }
 
 function InfoTab({ event, isOwner, isAdmin, showToast, reload }: any) {
-  async function cancelEvent() {
-    if (!confirm("確定要取消這個活動嗎？所有報名者將會收到通知。")) return;
-    const res = await fetch(`/api/events/${event.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status: "cancelled" }) });
-    if (res.ok) { showToast("活動已取消"); reload(); }
-  }
+  const [showCancelModal, setShowCancelModal] = useState(false);
+
   async function deleteEvent() {
     if (!confirm("確定要永久刪除這個活動嗎？此操作無法復原。")) return;
     const res = await fetch(`/api/events/${event.id}`, { method: "DELETE" });
@@ -344,6 +341,16 @@ function InfoTab({ event, isOwner, isAdmin, showToast, reload }: any) {
 
   return (
     <div className="flex flex-col gap-6">
+      {event.status === "cancelled" && event.cancelReason && (
+        <div className="flex items-start gap-3 rounded-2xl bg-rose-50 p-4 text-sm text-rose-700 dark:bg-rose-500/10">
+          <ShieldAlert className="mt-0.5 shrink-0" size={20} />
+          <div>
+            <p className="font-bold">此活動已被揪主取消</p>
+            <p className="mt-1">取消原因：{event.cancelReason}</p>
+          </div>
+        </div>
+      )}
+
       <div>
         <h3 className="mb-2 font-display font-bold text-main">活動介紹</h3>
         <p className="whitespace-pre-line text-sm leading-relaxed text-soft">{event.description}</p>
@@ -383,10 +390,70 @@ function InfoTab({ event, isOwner, isAdmin, showToast, reload }: any) {
 
       {(isOwner || isAdmin) && (
         <div className="flex flex-wrap gap-2 border-t border-[var(--color-border)] pt-4">
-          {event.status !== "cancelled" && <button onClick={cancelEvent} className="rounded-full border border-amber-300 px-4 py-2 text-xs font-bold text-amber-600">取消活動</button>}
+          {event.status !== "cancelled" && <button onClick={() => setShowCancelModal(true)} className="rounded-full border border-amber-300 px-4 py-2 text-xs font-bold text-amber-600">取消活動</button>}
           <button onClick={deleteEvent} className="rounded-full border border-rose-300 px-4 py-2 text-xs font-bold text-rose-500">刪除活動</button>
         </div>
       )}
+
+      {showCancelModal && (
+        <CancelEventModal
+          eventId={event.id}
+          onClose={() => setShowCancelModal(false)}
+          onCancelled={() => {
+            setShowCancelModal(false);
+            showToast("活動已取消，已通知所有報名者");
+            reload();
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+function CancelEventModal({ eventId, onClose, onCancelled }: any) {
+  const [reason, setReason] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  async function submit() {
+    setLoading(true);
+    setError("");
+    try {
+      const res = await fetch(`/api/events/${eventId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "cancelled", cancelReason: reason }),
+      });
+      const d = await res.json();
+      if (res.ok) onCancelled();
+      else setError(d.error);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/50 p-4">
+      <div className="glass w-full max-w-md animate-pop rounded-3xl p-6">
+        <h3 className="flex items-center gap-2 font-display text-lg font-bold text-main">
+          <ShieldAlert size={20} className="text-amber-500" /> 取消活動
+        </h3>
+        <p className="mt-1 text-xs text-soft">取消後將立即自動通知所有已報名的參加者，請說明取消原因。</p>
+        {error && <p className="mt-3 rounded-xl bg-rose-50 px-3 py-2 text-sm text-rose-600">{error}</p>}
+        <textarea
+          value={reason}
+          onChange={(e) => setReason(e.target.value)}
+          rows={4}
+          placeholder="請說明取消原因（至少 5 個字），例如：天候不佳、人數不足、場地異動..."
+          className="mt-3 w-full rounded-xl border border-[var(--color-border)] bg-app px-3 py-2.5 text-sm text-main outline-none"
+        />
+        <div className="mt-4 flex gap-2">
+          <button onClick={onClose} className="flex-1 rounded-xl border border-[var(--color-border)] py-2.5 text-sm font-bold text-main">先不取消</button>
+          <button disabled={loading || reason.trim().length < 5} onClick={submit} className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-amber-500 py-2.5 text-sm font-bold text-white disabled:opacity-50">
+            {loading && <Loader2 size={16} className="animate-spin" />} 確認取消活動
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -399,7 +466,6 @@ function DetailRow({ label, value }: { label: string; value: string }) {
     </div>
   );
 }
-
 function ParticipantsTab({ event, participants, waitlist, pending, isOwner, me, showToast, reload }: any) {
   async function act(participantId: number, action: string) {
     const res = await fetch(`/api/events/${event.id}/participants/${participantId}`, {

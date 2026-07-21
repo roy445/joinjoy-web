@@ -2,15 +2,19 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, ImagePlus, KeyRound, Send, CheckCircle2 } from "lucide-react";
+import { Loader2, ImagePlus, KeyRound, Send, CheckCircle2, BookOpenCheck } from "lucide-react";
 import { REGIONS } from "@/lib/constants";
 import { SectionTitle } from "@/components/ui";
+import { HostGuidelinesModal } from "@/components/host-guidelines-modal";
+
+type Permission = { canCreateEvent: boolean; credits: number; isAdmin: boolean; hasAgreedHostGuidelines: boolean };
 
 export default function CreateEventPage() {
   const router = useRouter();
   const [me, setMe] = useState<any>(null);
-  const [permission, setPermission] = useState<{ canCreateEvent: boolean; credits: number; isAdmin: boolean } | null>(null);
+  const [permission, setPermission] = useState<Permission | null>(null);
   const [loading, setLoading] = useState(true);
+  const [showGuidelines, setShowGuidelines] = useState(false);
 
   useEffect(() => {
     Promise.all([
@@ -39,7 +43,34 @@ export default function CreateEventPage() {
   return (
     <div className="mx-auto max-w-3xl px-4 py-6 md:px-8 md:py-8">
       <SectionTitle eyebrow="CREATE" title="建立活動" />
-      {hasPermission ? <EventForm credits={permission?.credits ?? 0} isAdmin={!!permission?.isAdmin} /> : <PermissionGate onGranted={() => setPermission({ ...(permission as any), credits: (permission?.credits ?? 0) + 1 })} />}
+
+      {!permission?.hasAgreedHostGuidelines ? (
+        <div className="card-surface animate-fade-up rounded-3xl p-6 text-center md:p-8">
+          <p className="text-2xl">🎪</p>
+          <h3 className="mt-2 font-display text-lg font-bold text-main">建立活動前，請先詳閱揪主守則</h3>
+          <p className="mt-1 text-sm text-soft">包含取消活動須說明原因、活動開始前 24 小時鎖定編輯等重要規範，僅需閱讀同意一次。</p>
+          <button
+            onClick={() => setShowGuidelines(true)}
+            className="btn-coral mx-auto mt-4 flex items-center gap-2 rounded-full px-6 py-2.5 text-sm font-bold"
+          >
+            <BookOpenCheck size={16} /> 閱讀揪主守則
+          </button>
+        </div>
+      ) : hasPermission ? (
+        <EventForm credits={permission?.credits ?? 0} isAdmin={!!permission?.isAdmin} />
+      ) : (
+        <PermissionGate onGranted={() => setPermission({ ...(permission as Permission), credits: (permission?.credits ?? 0) + 1 })} />
+      )}
+
+      {showGuidelines && (
+        <HostGuidelinesModal
+          onAgree={() => {
+            setShowGuidelines(false);
+            setPermission((p) => (p ? { ...p, hasAgreedHostGuidelines: true } : p));
+          }}
+          onClose={() => setShowGuidelines(false)}
+        />
+      )}
     </div>
   );
 }
