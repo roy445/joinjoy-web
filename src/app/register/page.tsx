@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { AuthCard } from "@/components/auth-card";
 import { GuidelinesModal } from "@/components/guidelines-modal";
-import { Mail, Lock, User, Loader2, BookOpenCheck, CheckCircle2 } from "lucide-react";
+import { Mail, Lock, User, Loader2, BookOpenCheck, CheckCircle2, MailCheck } from "lucide-react";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -14,6 +14,9 @@ export default function RegisterPage() {
   const [showGuidelines, setShowGuidelines] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [registered, setRegistered] = useState(false);
+  const [emailSent, setEmailSent] = useState(false);
+  const [devVerifyUrl, setDevVerifyUrl] = useState("");
 
   function handleAgree() {
     setAgree(true);
@@ -44,11 +47,42 @@ export default function RegisterPage() {
         setError(data.error || "註冊失敗");
         return;
       }
-      router.push("/");
+      setRegistered(true);
+      setEmailSent(!!data.emailSent);
+      if (data.devVerifyUrl) setDevVerifyUrl(data.devVerifyUrl);
       router.refresh();
     } finally {
       setLoading(false);
     }
+  }
+
+  if (registered) {
+    return (
+      <AuthCard title="註冊成功！" subtitle="請完成信箱驗證">
+        <div className="flex flex-col items-center gap-4 py-2 text-center">
+          <MailCheck size={44} className="text-brand-500" />
+          {emailSent ? (
+            <p className="text-sm text-soft">
+              我們已寄送一封驗證信到 <b className="text-main">{form.email}</b>，請至信箱點擊驗證連結完成帳號驗證（也請檢查垃圾郵件匣）。
+            </p>
+          ) : (
+            <>
+              <p className="text-sm text-soft">
+                目前尚未設定信件服務，暫時無法寄出真實驗證信。請直接使用以下連結完成驗證：
+              </p>
+              {devVerifyUrl && (
+                <Link href={devVerifyUrl} className="btn-brand w-full rounded-xl py-2.5 text-center text-sm font-bold">
+                  前往驗證信箱
+                </Link>
+              )}
+            </>
+          )}
+          <Link href="/" className="btn-coral mt-2 w-full rounded-xl py-2.5 text-center text-sm font-bold">
+            先開始探索揪好咖
+          </Link>
+        </div>
+      </AuthCard>
+    );
   }
 
   return (

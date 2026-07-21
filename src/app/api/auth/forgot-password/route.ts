@@ -4,6 +4,7 @@ import { users, passwordResetTokens } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { generateToken } from "@/lib/auth";
 import { rateLimit, clientKey, isSameOrigin } from "@/lib/security";
+import { sendPasswordResetEmail } from "@/lib/mail";
 
 export async function POST(req: NextRequest) {
   if (!isSameOrigin(req)) {
@@ -27,13 +28,14 @@ export async function POST(req: NextRequest) {
   const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
   await db.insert(passwordResetTokens).values({ userId: user.id, token, expiresAt });
 
-  const resetUrl = `/reset-password?token=${token}`;
+  const resetUrl = new URL(`/reset-password?token=${token}`, req.nextUrl.origin).toString();
+  const result = await sendPasswordResetEmail(email, resetUrl);
 
-  // No SMTP provider configured in this sandbox — return the reset link directly
-  // so the "forgot password" flow remains fully functional end-to-end.
   return NextResponse.json({
     ok: true,
-    devResetUrl: resetUrl,
-    note: "目前尚未設定信件服務，請直接使用以下連結重設密碼。",
+    emailSent: result.sent,
+    // Only surface the raw reset link when no mail provider is configured
+    // yet, so the flow remains fully testable without real email delivery.
+    devResetUrl: result.sent ? undefined : resetUrl,
   });
 }

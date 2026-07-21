@@ -21,6 +21,7 @@ import {
 import { Logo } from "@/components/logo";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { NotificationBell } from "@/components/notification-bell";
+import { EmailVerifyBanner } from "@/components/email-verify-banner";
 import type { ClientUser } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -43,7 +44,7 @@ export function AppShell({ user, children }: { user: ClientUser | null; children
   const router = useRouter();
   const [drawerOpen, setDrawerOpen] = useState(false);
 
-  const isAuthPage = pathname === "/login" || pathname === "/register" || pathname === "/forgot-password" || pathname === "/reset-password";
+  const isAuthPage = pathname === "/login" || pathname === "/register" || pathname === "/forgot-password" || pathname === "/reset-password" || pathname === "/verify-email";
 
   async function handleLogout() {
     await fetch("/api/auth/logout", { method: "POST" });
@@ -223,10 +224,12 @@ export function AppShell({ user, children }: { user: ClientUser | null; children
               </Link>
             )}
           </div>
-        </header>
+
+          {children}        </header>
+
+        {user && !user.emailVerified && <EmailVerifyBanner email={user.email} />}
 
         <main key={pathname} className="flex-1 animate-fade-up" style={{ animationDuration: "0.35s" }}>
-          {children}
         </main>
       </div>
 

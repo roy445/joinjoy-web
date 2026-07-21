@@ -247,8 +247,16 @@ export default function SettingsPage() {
 
       <div className="card-surface rounded-3xl p-6">
         <h3 className="mb-2 flex items-center gap-2 font-display font-bold text-main"><ShieldCheck size={18} className="text-brand-600" /> 帳號資訊</h3>
-        <p className="text-sm text-soft">Email：{user.email}</p>
-        <p className="mt-1 text-sm text-soft">信用分數：{Number(user.creditScore).toFixed(0)}</p>
+        <div className="flex flex-wrap items-center gap-2 text-sm text-soft">
+          <span>Email：{user.email}</span>
+          {user.emailVerified ? (
+            <Badge tone="brand">✅ 已驗證</Badge>
+          ) : (
+            <Badge tone="coral">⚠️ 尚未驗證</Badge>
+          )}
+        </div>
+        {!user.emailVerified && <ResendVerificationButton />}
+        <p className="mt-2 text-sm text-soft">信用分數：{Number(user.creditScore).toFixed(0)}</p>
         <p className="mt-1 text-sm text-soft">建立時間：{new Date(user.createdAt).toLocaleDateString("zh-TW")}</p>
       </div>
 
@@ -272,5 +280,46 @@ function QuickLink({ href, icon, label }: { href: string; icon: React.ReactNode;
       <div className="flex h-10 w-10 items-center justify-center rounded-full bg-brand-500/10 text-brand-600">{icon}</div>
       <span className="text-xs font-semibold text-main">{label}</span>
     </Link>
+  );
+}
+function ResendVerificationButton() {
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState("");
+  const [devUrl, setDevUrl] = useState("");
+
+  async function resend() {
+    setLoading(true);
+    setMessage("");
+    setDevUrl("");
+    try {
+      const res = await fetch("/api/auth/resend-verification", { method: "POST" });
+      const d = await res.json();
+      if (res.ok) {
+        if (d.devVerifyUrl) {
+          setDevUrl(d.devVerifyUrl);
+          setMessage("尚未設定信件服務，請點選下方連結完成驗證");
+        } else {
+          setMessage("驗證信已重新寄出，請至信箱查收！");
+        }
+      } else {
+        setMessage(d.error || "發送失敗，請稍後再試");
+      }
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div className="mt-2 flex flex-col gap-2">
+      <button disabled={loading} onClick={resend} className="btn-brand flex w-fit items-center gap-1.5 rounded-full px-4 py-2 text-xs font-bold disabled:opacity-60">
+        {loading && <Loader2 size={13} className="animate-spin" />} 重新發送驗證信
+      </button>
+      {message && <p className="text-xs text-soft">{message}</p>}
+      {devUrl && (
+        <Link href={devUrl} className="w-fit text-xs font-bold text-brand-600 hover:underline">
+          點此前往驗證
+        </Link>
+      )}
+    </div>
   );
 }
