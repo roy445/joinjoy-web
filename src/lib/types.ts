@@ -8,5 +8,4 @@ export type ClientUser = {
   canCreateEvent: boolean;
   creditScore: string;
   isBlacklisted: boolean;
-  emailVerified: boolean;
 };

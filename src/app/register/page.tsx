@@ -13,11 +13,8 @@ export default function RegisterPage() {
   const [agree, setAgree] = useState(false);
   const [showGuidelines, setShowGuidelines] = useState(false);
   const [error, setError] = useState("");
-  const [emailError, setEmailError] = useState("");
   const [loading, setLoading] = useState(false);
   const [registered, setRegistered] = useState(false);
-  const [emailSent, setEmailSent] = useState(false);
-  const [devVerifyUrl, setDevVerifyUrl] = useState("");
 
   function handleAgree() {
     setAgree(true);
@@ -27,7 +24,6 @@ export default function RegisterPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
-    setEmailError("");
     if (form.password !== form.confirm) {
       setError("兩次密碼輸入不一致");
       return;
@@ -50,9 +46,6 @@ export default function RegisterPage() {
         return;
       }
       setRegistered(true);
-      setEmailSent(!!data.emailSent);
-      if (data.devVerifyUrl) setDevVerifyUrl(data.devVerifyUrl);
-      if (data.error) setEmailError(data.error);
       router.refresh();
     } finally {
       setLoading(false);
@@ -61,28 +54,12 @@ export default function RegisterPage() {
 
   if (registered) {
     return (
-      <AuthCard title="註冊成功！" subtitle="請完成信箱驗證">
+      <AuthCard title="註冊成功！" subtitle="歡迎加入揪好咖">
         <div className="flex flex-col items-center gap-4 py-2 text-center">
           <MailCheck size={44} className="text-brand-500" />
-          {emailSent ? (
-            <p className="text-sm text-soft">
-              我們已寄送一封驗證信到 <b className="text-main">{form.email}</b>，請至信箱點擊驗證連結完成帳號驗證（也請檢查垃圾郵件匣）。
-            </p>
-          ) : (
-            <>
-              <p className="text-sm text-soft">
-                帳號已建立，但驗證信尚未成功寄出。請使用下面的連結完成驗證，或稍後到設定頁重新發送驗證信：
-              </p>
-              {devVerifyUrl && (
-                <Link href={devVerifyUrl} className="btn-brand w-full rounded-xl py-2.5 text-center text-sm font-bold">
-                  前往驗證信箱
-                </Link>
-              )}
-              {emailError && <p className="text-xs text-rose-500">錯誤原因：{emailError}</p>}
-            </>
-          )}
+          <p className="text-sm text-soft">帳號已建立，您已成功登入，現在可以開始探索揪好咖的活動與社群。</p>
           <Link href="/" className="btn-coral mt-2 w-full rounded-xl py-2.5 text-center text-sm font-bold">
-            先開始探索揪好咖
+            開始使用
           </Link>
         </div>
       </AuthCard>

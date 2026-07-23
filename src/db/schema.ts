@@ -35,7 +35,6 @@ export const users = pgTable("users", {
   creditScore: numeric("credit_score", { precision: 6, scale: 2 }).notNull().default("100"),
   isBlacklisted: boolean("is_blacklisted").notNull().default(false),
   noShowCount: integer("no_show_count").notNull().default(0),
-  emailVerified: boolean("email_verified").notNull().default(false),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
@@ -51,15 +50,6 @@ export const sessions = pgTable("sessions", {
 
 // ---------- Password reset ----------
 export const passwordResetTokens = pgTable("password_reset_tokens", {
-  id: serial("id").primaryKey(),
-  userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
-  token: varchar("token", { length: 255 }).notNull().unique(),
-  expiresAt: timestamp("expires_at").notNull(),
-  used: boolean("used").notNull().default(false),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
-});
-// ---------- Email verification ----------
-export const emailVerificationTokens = pgTable("email_verification_tokens", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
   token: varchar("token", { length: 255 }).notNull().unique(),

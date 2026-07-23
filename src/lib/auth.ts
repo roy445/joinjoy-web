@@ -38,7 +38,6 @@ export type SessionUser = {
   canCreateEvent: boolean;
   creditScore: string;
   isBlacklisted: boolean;
-  emailVerified: boolean;
 };
 
 export async function createSession(userId: number) {
@@ -81,7 +80,6 @@ export async function getCurrentUser(): Promise<SessionUser | null> {
       canCreateEvent: users.canCreateEvent,
       creditScore: users.creditScore,
       isBlacklisted: users.isBlacklisted,
-      emailVerified: users.emailVerified,
     })
     .from(sessions)
     .innerJoin(users, eq(sessions.userId, users.id))

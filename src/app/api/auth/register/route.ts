@@ -1,11 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
-import { users, emailVerificationTokens } from "@/db/schema";
+import { users } from "@/db/schema";
 import { eq } from "drizzle-orm";
-import { createSession, hashPassword, generateToken } from "@/lib/auth";
+import { createSession, hashPassword } from "@/lib/auth";
 import { isValidEmail, sanitizeText } from "@/lib/utils";
 import { rateLimit, clientKey, isSameOrigin } from "@/lib/security";
-import { sendVerificationEmail } from "@/lib/mail";
 
 export async function POST(req: NextRequest) {
   if (!isSameOrigin(req)) {
@@ -38,21 +37,5 @@ export async function POST(req: NextRequest) {
 
   await createSession(user.id);
 
-  // Fire off a real verification email. The account remains usable while
-  // unverified (only a reminder banner is shown) so the flow never locks
-  // users out if the mail provider has a hiccup.
-  const token = generateToken();
-  const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
-  await db.insert(emailVerificationTokens).values({ userId: user.id, token, expiresAt });
-  const verifyUrl = new URL(`/verify-email?token=${token}`, req.nextUrl.origin).toString();
-  const result = await sendVerificationEmail(email, name, verifyUrl);
-
-  return NextResponse.json({
-    ok: true,
-    emailSent: result.sent,
-    error: result.sent ? undefined : result.error,
-    // Only surface the raw verification link when no mail provider is
-    // configured yet, so local/dev testing keeps working end-to-end.
-    devVerifyUrl: result.sent ? undefined : verifyUrl,
-  });
+  return NextResponse.json({ ok: true });
 }

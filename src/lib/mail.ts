@@ -137,7 +137,7 @@ function emailShell(title: string, bodyHtml: string, ctaLabel: string, ctaUrl: s
           ${MAIL_LOGO_URL ? `<img src="${MAIL_LOGO_URL}" alt="揪好咖 JoinJoy" width="52" height="52" style="border-radius:18px; object-fit:cover; display:block;" />` : `<div style="flex-shrink:0; width:52px; height:52px; border-radius:18px; background:linear-gradient(135deg,#4f46e5,#0ea5e9); display:flex; align-items:center; justify-content:center; color:#ffffff; font-size:24px; font-weight:800;">J</div>`}
           <div>
             <p style="margin:0; font-size:16px; font-weight:700; color:#0f172a;">${title}</p>
-            <p style="margin:6px 0 0; font-size:13px; color:#64748b; line-height:1.6;">我們已經準備好驗證信，請點擊下方按鈕完成驗證。</p>
+            <p style="margin:6px 0 0; font-size:13px; color:#64748b; line-height:1.6;">我們已經準備好信件，請點擊下方按鈕完成後續操作。</p>
           </div>
         </div>
         <div style="font-size:15px; line-height:1.8; color:#334155; margin-bottom:28px;">${bodyHtml}</div>
@@ -155,13 +155,6 @@ function emailShell(title: string, bodyHtml: string, ctaLabel: string, ctaUrl: s
       </div>
     </div>
   </div>`;
-}
-
-export async function sendVerificationEmail(to: string, name: string, verifyUrl: string) {
-  const body = `嗨 ${name}，歡迎加入揪好咖！請點擊下方按鈕完成信箱驗證，驗證後即可享有完整的帳號功能與通知服務。此連結 24 小時內有效。`;
-  const html = emailShell("驗證你的 Email 信箱", body, "驗證我的信箱", verifyUrl);
-  const text = plainTextShell("驗證你的 Email 信箱", body, "驗證我的信箱", verifyUrl);
-  return sendMail({ to, subject: "【揪好咖】請驗證你的 Email 信箱", html, text });
 }
 
 function plainTextShell(title: string, body: string, ctaLabel: string, ctaUrl: string) {
