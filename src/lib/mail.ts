@@ -34,25 +34,29 @@ function getTransportConfig() {
     return null;
   }
 
+  const common = {
+    auth: {
+      user: EMAIL_USER,
+      pass: EMAIL_PASS,
+    },
+    connectionTimeout: 10000,
+    greetingTimeout: 10000,
+    socketTimeout: 10000,
+  };
+
   if (EMAIL_SERVICE) {
     return {
+      ...common,
       service: EMAIL_SERVICE,
-      auth: {
-        user: EMAIL_USER,
-        pass: EMAIL_PASS,
-      },
     };
   }
 
   if (EMAIL_HOST && EMAIL_PORT) {
     return {
+      ...common,
       host: EMAIL_HOST,
       port: EMAIL_PORT,
       secure: EMAIL_PORT === 465,
-      auth: {
-        user: EMAIL_USER,
-        pass: EMAIL_PASS,
-      },
     };
   }
 
