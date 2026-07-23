@@ -1,4 +1,5 @@
 import nodemailer from "nodemailer";
+import { Resend } from "resend";
 
 const EMAIL_SERVICE = process.env.EMAIL_SERVICE;
 const EMAIL_HOST = process.env.EMAIL_HOST;
@@ -9,6 +10,9 @@ const FROM = process.env.MAIL_FROM || EMAIL_USER;
 const MAIL_LOGO_URL =
   process.env.MAIL_LOGO_URL ||
   (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}/logo.png` : "");
+const RESEND_API_KEY = process.env.RESEND_API_KEY;
+const resend = RESEND_API_KEY ? new Resend(RESEND_API_KEY) : null;
+const RESEND_FROM = process.env.MAIL_FROM || "onboarding@resend.dev";
 
 type SendMailInput = {
   to: string;
@@ -66,11 +70,8 @@ function getTransportConfig() {
 const transporterConfig = getTransportConfig();
 const transporter = transporterConfig ? nodemailer.createTransport(transporterConfig) : null;
 
-export async function sendMail({ to, subject, html, text }: SendMailInput): Promise<SendMailResult> {
+async function sendViaSmtp({ to, subject, html, text }: SendMailInput): Promise<SendMailResult> {
   if (!transporter || !FROM) {
-    console.warn(
-      `[mail] SMTP 設定未完整，無法寄信。請確認 EMAIL_SERVICE/EMAIL_HOST、EMAIL_USER、EMAIL_PASS、MAIL_FROM 已設定。`
-    );
     return { sent: false, error: "SMTP_CONFIG_MISSING" };
   }
 
@@ -88,6 +89,39 @@ export async function sendMail({ to, subject, html, text }: SendMailInput): Prom
     console.error("[mail] SMTP 寄送失敗", err);
     return { sent: false, error: normalizeError(err) };
   }
+}
+
+async function sendViaResend({ to, subject, html, text }: SendMailInput): Promise<SendMailResult> {
+  if (!resend) {
+    return { sent: false, error: "RESEND_API_KEY_MISSING" };
+  }
+
+  try {
+    const result = await resend.emails.send({ from: RESEND_FROM, to, subject, html, text });
+    if (!result || (result as any).status === "failed" || (result as any).error) {
+      const errMsg = (result as any)?.error?.message || normalizeError(result);
+      console.error("[mail] Resend 發送失敗", result);
+      return { sent: false, error: errMsg };
+    }
+    console.log(`[mail] Resend 發送成功：${subject} -> ${to}`);
+    return { sent: true };
+  } catch (err) {
+    console.error("[mail] Resend 寄送失敗", err);
+    return { sent: false, error: normalizeError(err) };
+  }
+}
+
+export async function sendMail({ to, subject, html, text }: SendMailInput): Promise<SendMailResult> {
+  const smtpResult = await sendViaSmtp({ to, subject, html, text });
+  if (smtpResult.sent) return smtpResult;
+
+  if (resend) {
+    console.warn(`[mail] SMTP 無法發送，改用 Resend 發信：${smtpResult.error}`);
+    const resendResult = await sendViaResend({ to, subject, html, text });
+    return resendResult.sent ? resendResult : { sent: false, error: `SMTP: ${smtpResult.error}; Resend: ${resendResult.error}` };
+  }
+
+  return smtpResult;
 }
 
 function emailShell(title: string, bodyHtml: string, ctaLabel: string, ctaUrl: string) {
