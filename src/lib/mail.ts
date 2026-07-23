@@ -8,6 +8,9 @@ const resend = resendApiKey ? new Resend(resendApiKey) : null;
 // once RESEND_API_KEY is configured. Once a custom domain is verified in the
 // Resend dashboard, set MAIL_FROM to send from your own address instead.
 const FROM = process.env.MAIL_FROM || "揪好咖 JoinJoy <onboarding@resend.dev>";
+const MAIL_LOGO_URL =
+  process.env.MAIL_LOGO_URL ||
+  (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}/logo.png` : "");
 
 type SendMailInput = {
   to: string;
@@ -37,19 +40,32 @@ export async function sendMail({ to, subject, html }: SendMailInput): Promise<Se
 
 function emailShell(title: string, bodyHtml: string, ctaLabel: string, ctaUrl: string) {
   return `
-  <div style="font-family: 'Noto Sans TC', -apple-system, sans-serif; background:#faf7f0; padding: 32px 16px;">
-    <div style="max-width:480px;margin:0 auto;background:#ffffff;border-radius:24px;overflow:hidden;box-shadow:0 10px 30px rgba(31,65,60,0.08);">
-      <div style="background:linear-gradient(135deg,#339990,#257d77);padding:28px 24px;text-align:center;">
-        <p style="margin:0;color:#ffffff;font-size:20px;font-weight:800;">揪好咖 JoinJoy</p>
-        <p style="margin:4px 0 0;color:#eafaf7;font-size:12px;letter-spacing:2px;">把喜歡的事，變成一起的事</p>
+  <div style="font-family:'Noto Sans TC', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background:#f4f7fb; padding:32px 16px;">
+    <div style="max-width:560px; margin:0 auto; background:#ffffff; border-radius:28px; overflow:hidden; box-shadow:0 28px 60px rgba(15,23,42,0.08);">
+      <div style="background:linear-gradient(135deg,#4f46e5,#0ea5e9); padding:30px 28px; text-align:center; color:#ffffff;">
+        <p style="margin:0; font-size:20px; font-weight:800; letter-spacing:0.04em;">揪好咖 JoinJoy</p>
+        <p style="margin:8px 0 0; font-size:13px; color:rgba(255,255,255,0.88);">把喜歡的事，變成一起的事</p>
       </div>
-      <div style="padding:28px 24px;">
-        <h1 style="margin:0 0 12px;font-size:18px;color:#1f2937;">${title}</h1>
-        <div style="font-size:14px;line-height:1.7;color:#4b5563;">${bodyHtml}</div>
-        <div style="text-align:center;margin-top:24px;">
-          <a href="${ctaUrl}" style="display:inline-block;background:linear-gradient(135deg,#ee7f57,#e5673f);color:#ffffff;text-decoration:none;font-weight:700;font-size:14px;padding:12px 28px;border-radius:999px;">${ctaLabel}</a>
+      <div style="padding:32px 28px;">
+        <div style="display:flex; align-items:center; gap:14px; margin-bottom:24px;">
+          ${MAIL_LOGO_URL ? `<img src="${MAIL_LOGO_URL}" alt="揪好咖 JoinJoy" width="52" height="52" style="border-radius:18px; object-fit:cover; display:block;" />` : `<div style="flex-shrink:0; width:52px; height:52px; border-radius:18px; background:linear-gradient(135deg,#4f46e5,#0ea5e9); display:flex; align-items:center; justify-content:center; color:#ffffff; font-size:24px; font-weight:800;">J</div>`}
+          <div>
+            <p style="margin:0; font-size:16px; font-weight:700; color:#0f172a;">${title}</p>
+            <p style="margin:6px 0 0; font-size:13px; color:#64748b; line-height:1.6;">我們已經準備好驗證信，請點擊下方按鈕完成驗證。</p>
+          </div>
         </div>
-        <p style="margin-top:20px;font-size:12px;color:#9ca3af;word-break:break-all;">如果按鈕無法點擊，請複製以下連結至瀏覽器開啟：<br/>${ctaUrl}</p>
+        <div style="font-size:15px; line-height:1.8; color:#334155; margin-bottom:28px;">${bodyHtml}</div>
+        <div style="text-align:center; margin-bottom:28px;">
+          <a href="${ctaUrl}" style="display:inline-block; background:#4f46e5; color:#ffffff; text-decoration:none; font-weight:700; font-size:15px; padding:14px 32px; border-radius:999px; min-width:170px;">${ctaLabel}</a>
+        </div>
+        <div style="font-size:13px; line-height:1.7; color:#94a3b8; border-top:1px solid #e2e8f0; padding-top:20px;">
+          <p style="margin:0 0 8px;">如果按鈕無法點擊，請複製以下連結至瀏覽器開啟：</p>
+          <p style="margin:0; word-break:break-all;">${ctaUrl}</p>
+        </div>
+      </div>
+      <div style="background:#f8fafc; padding:18px 24px; text-align:center; font-size:13px; color:#64748b;">
+        <p style="margin:0;">如果你沒有請求此操作，請忽略此信件。</p>
+        <p style="margin:6px 0 0;">© 2026 揪好咖 JoinJoy</p>
       </div>
     </div>
   </div>`;

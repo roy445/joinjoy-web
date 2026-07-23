@@ -21,7 +21,7 @@ export function EmailVerifyBanner({ email }: { email: string }) {
         if (d.devVerifyUrl) {
           setMessage("尚未設定信件服務，請點選下方連結完成驗證");
         } else {
-          setMessage("驗證信已重新寄出，請至信箱查收！");
+          setMessage("驗證信已重新寄出，請至信箱查收！若未收到，請記得檢查垃圾郵件匣。");
         }
       } else {
         setMessage(d.error || "發送失敗，請稍後再試");
