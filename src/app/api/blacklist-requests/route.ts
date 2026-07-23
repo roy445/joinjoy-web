@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
-import { blacklistRequests, users, events } from "@/db/schema";
-import { eq, desc } from "drizzle-orm";
+import { blacklistRequests, users, events, eventParticipants } from "@/db/schema";
+import { eq, desc, and } from "drizzle-orm";
 import { requireUser } from "@/lib/auth";
 import { errorResponse } from "@/lib/api";
 import { notifyMany } from "@/lib/notify";
@@ -49,10 +49,28 @@ export async function POST(req: NextRequest) {
     if (!reason) throw new Error("請選擇原因");
     if (description.length < 10) throw new Error("請詳述事情經過（至少 10 個字）");
 
-    if (eventId) {
-      const [event] = await db.select().from(events).where(eq(events.id, eventId)).limit(1);
-      if (!event || event.hostId !== user.id) throw new Error("僅該場活動的揪主可提出申請");
-    }
+    // A blacklist request must be tied to a specific event where the
+    // requester was the host and the target actually registered — this
+    // prevents random users from blacklisting people they have no
+    // relationship with on the platform.
+    if (!eventId) throw new Error("請選擇該名使用者曾參加過、且您是揪主的活動");
+
+    const [event] = await db.select().from(events).where(eq(events.id, eventId)).limit(1);
+    if (!event || event.hostId !== user.id) throw new Error("僅該場活動的揪主可提出申請");
+
+    const [participation] = await db
+      .select({ id: eventParticipants.id })
+      .from(eventParticipants)
+      .where(and(eq(eventParticipants.eventId, eventId), eq(eventParticipants.userId, targetUserId)))
+      .limit(1);
+    if (!participation) throw new Error("此使用者並未報名過該場活動");
+
+    const [existingPending] = await db
+      .select({ id: blacklistRequests.id })
+      .from(blacklistRequests)
+      .where(and(eq(blacklistRequests.hostId, user.id), eq(blacklistRequests.targetUserId, targetUserId), eq(blacklistRequests.status, "pending")))
+      .limit(1);
+    if (existingPending) throw new Error("您已經對此使用者提出過申請，請等候審核");
 
     const [request] = await db.insert(blacklistRequests).values({ hostId: user.id, targetUserId, eventId, reason, description, evidenceUrls }).returning();
 

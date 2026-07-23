@@ -99,6 +99,21 @@ function BlacklistForm({ targetUserId, targetName, onClose }: { targetUserId: nu
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(false);
   const [error, setError] = useState("");
+  const [loadingEvents, setLoadingEvents] = useState(true);
+  const [eligibleEvents, setEligibleEvents] = useState<{ id: number; title: string; eventDate: string }[]>([]);
+  const [eventId, setEventId] = useState<number | "">("");
+
+  useEffect(() => {
+    fetch("/api/host/events-with-participants")
+      .then((r) => (r.ok ? r.json() : { events: [] }))
+      .then((d) => {
+        const matches = (d.events || []).filter((e: any) => e.participants.some((p: any) => p.userId === targetUserId));
+        setEligibleEvents(matches);
+        if (matches.length === 1) setEventId(matches[0].id);
+      })
+      .finally(() => setLoadingEvents(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function submit() {
     setLoading(true);
@@ -107,7 +122,7 @@ function BlacklistForm({ targetUserId, targetName, onClose }: { targetUserId: nu
       const res = await fetch("/api/blacklist-requests", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ targetUserId, reason, description }),
+        body: JSON.stringify({ targetUserId, eventId, reason, description }),
       });
       const d = await res.json();
       if (res.ok) setDone(true);
@@ -125,11 +140,26 @@ function BlacklistForm({ targetUserId, targetName, onClose }: { targetUserId: nu
           <p className="mt-4 rounded-xl bg-brand-50 px-3 py-3 text-sm text-brand-700">
             申請已送出！管理員將會查核事情經過，若屬實將列入黑名單並通知您結果。
           </p>
+        ) : loadingEvents ? (
+          <p className="mt-4 text-sm text-soft">正在確認您與此使用者的活動關聯...</p>
+        ) : eligibleEvents.length === 0 ? (
+          <p className="mt-4 rounded-xl bg-rose-50 px-3 py-3 text-sm text-rose-600">
+            此功能僅供活動揪主檢舉「曾報名過您所主辦活動」的使用者。您目前沒有任何活動包含 {targetName} 的報名紀錄，無法提出申請。
+          </p>
         ) : (
           <>
             <p className="mt-2 text-xs text-soft">此功能僅供活動揪主檢舉曾參與您活動的使用者。請如實填寫，管理員將會查核。</p>
             {error && <p className="mt-3 rounded-xl bg-rose-50 px-3 py-2 text-sm text-rose-600">{error}</p>}
             <label className="mt-4 block text-sm">
+              <span className="mb-1 block text-xs font-semibold text-soft">相關活動</span>
+              <select value={eventId} onChange={(e) => setEventId(Number(e.target.value))} className="w-full rounded-xl border border-[var(--color-border)] bg-app px-3 py-2.5 text-sm outline-none">
+                <option value="" disabled>請選擇活動</option>
+                {eligibleEvents.map((e) => (
+                  <option key={e.id} value={e.id}>{e.title}（{e.eventDate}）</option>
+                ))}
+              </select>
+            </label>
+            <label className="mt-3 block text-sm">
               <span className="mb-1 block text-xs font-semibold text-soft">原因</span>
               <select value={reason} onChange={(e) => setReason(e.target.value)} className="w-full rounded-xl border border-[var(--color-border)] bg-app px-3 py-2.5 text-sm outline-none">
                 {BLACKLIST_REASONS.map((r) => <option key={r} value={r}>{r}</option>)}
@@ -143,8 +173,8 @@ function BlacklistForm({ targetUserId, targetName, onClose }: { targetUserId: nu
         )}
         <div className="mt-5 flex gap-2">
           <button onClick={onClose} className="flex-1 rounded-xl border border-[var(--color-border)] py-2.5 text-sm font-bold text-main">{done ? "關閉" : "取消"}</button>
-          {!done && (
-            <button disabled={loading || description.length < 10} onClick={submit} className="btn-coral flex-1 rounded-xl py-2.5 text-sm font-bold disabled:opacity-50">送出申請</button>
+          {!done && eligibleEvents.length > 0 && (
+            <button disabled={loading || description.length < 10 || !eventId} onClick={submit} className="btn-coral flex-1 rounded-xl py-2.5 text-sm font-bold disabled:opacity-50">送出申請</button>
           )}
         </div>
       </div>

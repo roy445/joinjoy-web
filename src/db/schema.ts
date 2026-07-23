@@ -322,6 +322,9 @@ export const blacklist = pgTable("blacklist", {
   sourceRequestId: integer("source_request_id"),
   addedBy: integer("added_by").notNull().references(() => users.id),
   active: boolean("active").notNull().default(true),
+  removedReason: text("removed_reason"),
+  removedBy: integer("removed_by").references(() => users.id),
+  removedAt: timestamp("removed_at"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
