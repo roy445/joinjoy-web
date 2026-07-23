@@ -9,8 +9,8 @@ export function Logo({ size = 40, showText = true, className }: { size?: number;
         alt="揪好咖 JoinJoy"
         width={size}
         height={size}
-        className="rounded-[22%] shadow-sm"
-        style={{ width: size, height: size }}
+        className="rounded-[22%] shadow-sm object-contain"
+        style={{ width: size, height: size, objectFit: "contain" }}
       />
       {showText && (
         <span className="flex flex-col leading-none">
