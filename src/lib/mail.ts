@@ -1,13 +1,11 @@
-import { Resend } from "resend";
+import nodemailer from "nodemailer";
 
-const resendApiKey = process.env.RESEND_API_KEY;
-const resend = resendApiKey ? new Resend(resendApiKey) : null;
-
-// "onboarding@resend.dev" works out of the box on any Resend account without
-// verifying a custom domain first, so real emails can be sent immediately
-// once RESEND_API_KEY is configured. Once a custom domain is verified in the
-// Resend dashboard, set MAIL_FROM to send from your own address instead.
-const FROM = process.env.MAIL_FROM || "onboarding@resend.dev";
+const EMAIL_SERVICE = process.env.EMAIL_SERVICE;
+const EMAIL_HOST = process.env.EMAIL_HOST;
+const EMAIL_PORT = process.env.EMAIL_PORT ? Number(process.env.EMAIL_PORT) : undefined;
+const EMAIL_USER = process.env.EMAIL_USER;
+const EMAIL_PASS = process.env.EMAIL_PASS;
+const FROM = process.env.MAIL_FROM || EMAIL_USER;
 const MAIL_LOGO_URL =
   process.env.MAIL_LOGO_URL ||
   (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}/logo.png` : "");
@@ -31,22 +29,59 @@ function normalizeError(err: unknown) {
   }
 }
 
-export async function sendMail({ to, subject, html, text }: SendMailInput): Promise<SendMailResult> {
-  if (!resend) {
-    console.warn(`[mail] RESEND_API_KEY 尚未設定或載入，未寄出真實郵件。收件人：${to}，主旨：${subject}`);
-    return { sent: false, error: "RESEND_API_KEY_MISSING" };
+function getTransportConfig() {
+  if (!EMAIL_USER || !EMAIL_PASS) {
+    return null;
   }
+
+  if (EMAIL_SERVICE) {
+    return {
+      service: EMAIL_SERVICE,
+      auth: {
+        user: EMAIL_USER,
+        pass: EMAIL_PASS,
+      },
+    };
+  }
+
+  if (EMAIL_HOST && EMAIL_PORT) {
+    return {
+      host: EMAIL_HOST,
+      port: EMAIL_PORT,
+      secure: EMAIL_PORT === 465,
+      auth: {
+        user: EMAIL_USER,
+        pass: EMAIL_PASS,
+      },
+    };
+  }
+
+  return null;
+}
+
+const transporterConfig = getTransportConfig();
+const transporter = transporterConfig ? nodemailer.createTransport(transporterConfig) : null;
+
+export async function sendMail({ to, subject, html, text }: SendMailInput): Promise<SendMailResult> {
+  if (!transporter || !FROM) {
+    console.warn(
+      `[mail] SMTP 設定未完整，無法寄信。請確認 EMAIL_SERVICE/EMAIL_HOST、EMAIL_USER、EMAIL_PASS、MAIL_FROM 已設定。`
+    );
+    return { sent: false, error: "SMTP_CONFIG_MISSING" };
+  }
+
   try {
-    const result = await resend.emails.send({ from: FROM, to, subject, html, text });
-    if (!result || (result as any).status === "failed" || (result as any).error) {
-      const errMsg = (result as any)?.error?.message || normalizeError(result);
-      console.error("[mail] Resend 發送失敗", result);
-      return { sent: false, error: errMsg };
-    }
-    console.log(`[mail] Resend 發送成功：${subject} -> ${to}`);
+    await transporter.sendMail({
+      from: FROM,
+      to,
+      subject,
+      text,
+      html,
+    });
+    console.log(`[mail] SMTP 發送成功：${subject} -> ${to}`);
     return { sent: true };
   } catch (err) {
-    console.error("[mail] 寄送信件失敗", err);
+    console.error("[mail] SMTP 寄送失敗", err);
     return { sent: false, error: normalizeError(err) };
   }
 }
