@@ -13,6 +13,7 @@ export default function RegisterPage() {
   const [agree, setAgree] = useState(false);
   const [showGuidelines, setShowGuidelines] = useState(false);
   const [error, setError] = useState("");
+  const [emailError, setEmailError] = useState("");
   const [loading, setLoading] = useState(false);
   const [registered, setRegistered] = useState(false);
   const [emailSent, setEmailSent] = useState(false);
@@ -26,6 +27,7 @@ export default function RegisterPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
+    setEmailError("");
     if (form.password !== form.confirm) {
       setError("兩次密碼輸入不一致");
       return;
@@ -50,6 +52,7 @@ export default function RegisterPage() {
       setRegistered(true);
       setEmailSent(!!data.emailSent);
       if (data.devVerifyUrl) setDevVerifyUrl(data.devVerifyUrl);
+      if (data.error) setEmailError(data.error);
       router.refresh();
     } finally {
       setLoading(false);
@@ -68,13 +71,14 @@ export default function RegisterPage() {
           ) : (
             <>
               <p className="text-sm text-soft">
-                目前尚未設定信件服務，暫時無法寄出真實驗證信。請直接使用以下連結完成驗證：
+                帳號已建立，但驗證信尚未成功寄出。請使用下面的連結完成驗證，或稍後到設定頁重新發送驗證信：
               </p>
               {devVerifyUrl && (
                 <Link href={devVerifyUrl} className="btn-brand w-full rounded-xl py-2.5 text-center text-sm font-bold">
                   前往驗證信箱
                 </Link>
               )}
+              {emailError && <p className="text-xs text-rose-500">錯誤原因：{emailError}</p>}
             </>
           )}
           <Link href="/" className="btn-coral mt-2 w-full rounded-xl py-2.5 text-center text-sm font-bold">

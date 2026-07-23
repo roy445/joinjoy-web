@@ -50,6 +50,7 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({
     ok: true,
     emailSent: result.sent,
+    error: result.sent ? undefined : result.error,
     // Only surface the raw verification link when no mail provider is
     // configured yet, so local/dev testing keeps working end-to-end.
     devVerifyUrl: result.sent ? undefined : verifyUrl,

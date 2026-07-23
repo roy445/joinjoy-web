@@ -28,6 +28,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       ok: true,
       emailSent: result.sent,
+      error: result.sent ? undefined : result.error,
       devVerifyUrl: result.sent ? undefined : verifyUrl,
     });
   } catch (err) {

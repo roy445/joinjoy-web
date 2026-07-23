@@ -7,7 +7,7 @@ const resend = resendApiKey ? new Resend(resendApiKey) : null;
 // verifying a custom domain first, so real emails can be sent immediately
 // once RESEND_API_KEY is configured. Once a custom domain is verified in the
 // Resend dashboard, set MAIL_FROM to send from your own address instead.
-const FROM = process.env.MAIL_FROM || "揪好咖 JoinJoy <onboarding@resend.dev>";
+const FROM = process.env.MAIL_FROM || "onboarding@resend.dev";
 const MAIL_LOGO_URL =
   process.env.MAIL_LOGO_URL ||
   (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}/logo.png` : "");
@@ -16,25 +16,38 @@ type SendMailInput = {
   to: string;
   subject: string;
   html: string;
+  text?: string;
 };
 
 export type SendMailResult = { sent: boolean; error?: string };
 
-export async function sendMail({ to, subject, html }: SendMailInput): Promise<SendMailResult> {
+function normalizeError(err: unknown) {
+  if (err instanceof Error) return err.message;
+  if (typeof err === "string") return err;
+  try {
+    return JSON.stringify(err);
+  } catch {
+    return "unknown";
+  }
+}
+
+export async function sendMail({ to, subject, html, text }: SendMailInput): Promise<SendMailResult> {
   if (!resend) {
-    console.warn(`[mail] RESEND_API_KEY 尚未設定，未寄出真實郵件。收件人：${to}，主旨：${subject}`);
+    console.warn(`[mail] RESEND_API_KEY 尚未設定或載入，未寄出真實郵件。收件人：${to}，主旨：${subject}`);
     return { sent: false, error: "RESEND_API_KEY_MISSING" };
   }
   try {
-    const { error } = await resend.emails.send({ from: FROM, to, subject, html });
-    if (error) {
-      console.error("[mail] Resend 回傳錯誤", error);
-      return { sent: false, error: error.message };
+    const result = await resend.emails.send({ from: FROM, to, subject, html, text });
+    if (!result || (result as any).status === "failed" || (result as any).error) {
+      const errMsg = (result as any)?.error?.message || normalizeError(result);
+      console.error("[mail] Resend 發送失敗", result);
+      return { sent: false, error: errMsg };
     }
+    console.log(`[mail] Resend 發送成功：${subject} -> ${to}`);
     return { sent: true };
   } catch (err) {
     console.error("[mail] 寄送信件失敗", err);
-    return { sent: false, error: err instanceof Error ? err.message : "unknown" };
+    return { sent: false, error: normalizeError(err) };
   }
 }
 
@@ -72,21 +85,19 @@ function emailShell(title: string, bodyHtml: string, ctaLabel: string, ctaUrl: s
 }
 
 export async function sendVerificationEmail(to: string, name: string, verifyUrl: string) {
-  const html = emailShell(
-    "驗證你的 Email 信箱",
-    `嗨 ${name}，歡迎加入揪好咖！請點擊下方按鈕完成信箱驗證，驗證後即可享有完整的帳號功能與通知服務。此連結 24 小時內有效。`,
-    "驗證我的信箱",
-    verifyUrl
-  );
-  return sendMail({ to, subject: "【揪好咖】請驗證你的 Email 信箱", html });
+  const body = `嗨 ${name}，歡迎加入揪好咖！請點擊下方按鈕完成信箱驗證，驗證後即可享有完整的帳號功能與通知服務。此連結 24 小時內有效。`;
+  const html = emailShell("驗證你的 Email 信箱", body, "驗證我的信箱", verifyUrl);
+  const text = plainTextShell("驗證你的 Email 信箱", body, "驗證我的信箱", verifyUrl);
+  return sendMail({ to, subject: "【揪好咖】請驗證你的 Email 信箱", html, text });
+}
+
+function plainTextShell(title: string, body: string, ctaLabel: string, ctaUrl: string) {
+  return `${title}\n\n${body}\n\n${ctaLabel}: ${ctaUrl}\n\n如果按鈕無法點擊，請複製連結到瀏覽器開啟。\n\n如果你沒有請求此操作，請忽略此信件。`;
 }
 
 export async function sendPasswordResetEmail(to: string, resetUrl: string) {
-  const html = emailShell(
-    "重設密碼",
-    `我們收到了重設密碼的請求。請點擊下方按鈕設定新密碼，此連結 1 小時內有效。如果這不是你本人的操作，請忽略此封信件。`,
-    "重設我的密碼",
-    resetUrl
-  );
-  return sendMail({ to, subject: "【揪好咖】重設密碼連結", html });
+  const body = `我們收到了重設密碼的請求。請點擊下方按鈕設定新密碼，此連結 1 小時內有效。如果這不是你本人的操作，請忽略此封信件。`;
+  const html = emailShell("重設密碼", body, "重設我的密碼", resetUrl);
+  const text = plainTextShell("重設密碼", body, "重設我的密碼", resetUrl);
+  return sendMail({ to, subject: "【揪好咖】重設密碼連結", html, text });
 }
