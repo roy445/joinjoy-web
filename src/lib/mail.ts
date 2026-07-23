@@ -12,7 +12,7 @@ const MAIL_LOGO_URL =
   (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}/logo.png` : "");
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
 const resend = RESEND_API_KEY ? new Resend(RESEND_API_KEY) : null;
-const RESEND_FROM = process.env.MAIL_FROM || "onboarding@resend.dev";
+const RESEND_FROM = process.env.RESEND_FROM || "onboarding@resend.dev";
 
 type SendMailInput = {
   to: string;
