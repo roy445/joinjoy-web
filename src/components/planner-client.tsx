@@ -21,6 +21,20 @@ type PlannerForm = {
   custom: string;
 };
 
+type Weather = {
+  date: string;
+  location: { name: string; admin1: string | null; latitude: number; longitude: number };
+  summary: string;
+  weatherCode: number;
+  minTemperature: number;
+  maxTemperature: number;
+  precipitationProbability: number;
+  precipitationMm: number;
+  windSpeed: number;
+  rainy: boolean;
+  hot: boolean;
+  recommendation: string;
+};
 type Place = {
   name: string;
   address: string;
@@ -116,13 +130,48 @@ export function PlannerClient() {
   const [form, setForm] = useState(initialForm);
   const [seed, setSeed] = useState(1);
   const [selectedQuick, setSelectedQuick] = useState("");
+  const [weather, setWeather] = useState<Weather | null>(null);
+  const [weatherLoading, setWeatherLoading] = useState(false);
+  const [weatherError, setWeatherError] = useState("");
   const [selectedPlan, setSelectedPlan] = useState<Plan | null>(null);
   const [shareOpen, setShareOpen] = useState(false);
   const [routeLoading, setRouteLoading] = useState(false);
   const [routeError, setRouteError] = useState("");
   const [routes, setRoutes] = useState<Record<string, Plan["route"]>>({});
   const [places, setPlaces] = useState<Record<string, Array<Place | null>>>({});
-  const plans = useMemo(() => buildPlans(form, seed), [form, seed]);
+  const plans = useMemo(() => buildPlans({ ...form, indoor: form.indoor || Boolean(weather?.rainy) }, seed), [form, seed, weather?.rainy]);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function loadWeather() {
+      if (!form.origin.trim() || !form.date) {
+        setWeather(null);
+        setWeatherError("");
+        return;
+      }
+      setWeatherLoading(true);
+      setWeatherError("");
+      try {
+        const response = await fetch("/api/planner/weather", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ origin: form.origin, date: form.date }),
+        });
+        const data = (await response.json().catch(() => null)) as Weather | { error?: string } | null;
+        if (!response.ok) throw new Error(data && "error" in data ? data.error : "天氣服務暫時無法使用");
+        if (!cancelled) setWeather(data as Weather);
+      } catch (error) {
+        if (!cancelled) {
+          setWeather(null);
+          setWeatherError(error instanceof Error ? error.message : "天氣服務暫時無法使用");
+        }
+      } finally {
+        if (!cancelled) setWeatherLoading(false);
+      }
+    }
+    void loadWeather();
+    return () => { cancelled = true; };
+  }, [form.origin, form.date]);
 
   useEffect(() => {
     let cancelled = false;
@@ -182,7 +231,7 @@ export function PlannerClient() {
     const route = routes[plan.title];
     window.localStorage.setItem("joinjoy:planner-preset", JSON.stringify({
       title: `${plan.emoji} ${plan.title}｜朋友出遊`,
-      description: `${plan.summary}\n\n行程安排：\n${plan.stops.map((stop, index) => `${stop.time}｜${stop.place?.name || places[plan.title]?.[index]?.name || stop.title}：${stop.place?.address || places[plan.title]?.[index]?.address || stop.detail}`).join("\n")}\n\n預估每人 $${plan.cost}，${route ? `Geoapify 路線約 ${route.distanceKm} 公里、${route.durationMinutes} 分鐘` : plan.travel}。\n\n由 AI 出遊規劃器產生，可依實際情況調整。`,
+      description: `${plan.summary}${weather ? `\n\n天氣：${weather.summary}，${weather.minTemperature}–${weather.maxTemperature}°C，降雨機率 ${weather.precipitationProbability}%。${weather.recommendation}` : ""}\n\n行程安排：\n${plan.stops.map((stop, index) => `${stop.time}｜${stop.place?.name || places[plan.title]?.[index]?.name || stop.title}：${stop.place?.address || places[plan.title]?.[index]?.address || stop.detail}`).join("\n")}\n\n預估每人 $${plan.cost}，${route ? `Geoapify 路線約 ${route.distanceKm} 公里、${route.durationMinutes} 分鐘` : plan.travel}。\n\n由 AI 出遊規劃器產生，可依實際情況調整。`,
       eventDate: form.date,
       startTime: form.start,
       endTime: form.end,
@@ -224,6 +273,7 @@ export function PlannerClient() {
               <label className="text-sm text-slate-300">開始時間<input type="time" value={form.start} onChange={(e) => update("start", e.target.value)} className="planner-input" /></label>
               <label className="text-sm text-slate-300">最晚回家<input type="time" value={form.end} onChange={(e) => update("end", e.target.value)} className="planner-input" /></label>
             </div>
+            <div className="mt-4 rounded-2xl border border-[#58d9ff]/20 bg-[#0a1a28] p-4"><div className="flex items-start justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-widest text-[#58d9ff]">LIVE WEATHER SCAN</p><p className="mt-1 text-sm font-bold text-white">{weatherLoading ? "正在讀取天氣…" : weather ? `${weather.location.name}｜${weather.summary}` : "輸入日期與出發地後掃描"}</p>{weather && <p className="mt-1 text-xs text-slate-400">{weather.minTemperature}–{weather.maxTemperature}°C｜降雨機率 {weather.precipitationProbability}%｜雨量 {weather.precipitationMm} mm</p>}{weatherError && <p className="mt-1 text-xs text-amber-300">{weatherError}</p>}{weather && <p className="mt-2 text-xs text-[#67f5c8]">{weather.recommendation}</p>}</div><span className="rounded-full bg-[#58d9ff]/10 px-2 py-1 text-xs text-[#9deaff]">{weather?.rainy ? "雨備模式" : weather ? "可探索" : "等待"}</span></div></div>
             <div className="mt-4 grid gap-4 sm:grid-cols-2"><label className="text-sm text-slate-300">交通方式<select value={form.transport} onChange={(e) => update("transport", e.target.value)} className="planner-input"><option>大眾運輸</option><option>自行開車</option><option>機車</option><option>走路</option></select></label><label className="text-sm text-slate-300">接受距離<select value={form.distance} onChange={(e) => update("distance", e.target.value)} className="planner-input"><option>3 公里內</option><option>10 公里內</option><option>30 公里內</option><option>不限距離</option></select></label></div>
             <div className="mt-4"><p className="mb-2 text-sm text-slate-300">活動風格</p><div className="flex flex-wrap gap-2">{vibes.map((item) => <button key={item} onClick={() => update("vibe", item)} className={`rounded-lg px-3 py-2 text-sm ${form.vibe === item ? "bg-[#58d9ff] font-bold text-[#06131e]" : "bg-[#132d40] text-slate-300"}`}>{item}</button>)}</div></div>
             <label className="mt-5 flex items-center gap-3 text-sm text-slate-300"><input type="checkbox" checked={form.indoor} onChange={(e) => update("indoor", e.target.checked)} className="h-4 w-4 accent-[#67f5c8]" />優先安排室內或雨備方案</label>
