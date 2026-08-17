@@ -94,6 +94,7 @@ async function runSearch(params: { q?: string; region?: string; date?: string; s
 function searchResultTitle(params: { q?: string; region?: string; date?: string; sort?: string }) {
   if (params.sort === "popular") return { eyebrow: "TRENDING NOW", title: "🔥 熱門活動" };
   if (params.sort === "upcoming") return { eyebrow: "DON'T MISS OUT", title: "⏰ 即將開始的活動" };
+  if (params.sort === "latest") return { eyebrow: "JUST ANNOUNCED", title: "🆕 最新活動" };
   if (params.q) return { eyebrow: "SEARCH RESULTS", title: `🔍 「${params.q}」的搜尋結果` };
   return { eyebrow: "FILTERED", title: "🔍 篩選結果" };
 }
@@ -170,23 +171,35 @@ export default async function HomePage({
 
       <section>
         <SectionTitle eyebrow="TRENDING NOW" title="🔥 熱門活動" action={<Link href="/?sort=popular#search-results" className="flex items-center gap-1 text-sm font-semibold text-brand-600">更多 <ArrowUpRight size={14} /></Link>} />
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {hot.map((e) => <EventCard key={e.id} event={e} />)}
-        </div>
+        {hot.length === 0 ? (
+          <EmptyState icon="🔥" title="目前還沒有熱門活動" subtitle="先建立一場活動，邀請更多好咖加入吧！" />
+        ) : (
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {hot.map((e) => <EventCard key={e.id} event={e} />)}
+          </div>
+        )}
       </section>
 
       <section>
         <SectionTitle eyebrow="JUST ANNOUNCED" title="🆕 最新活動" action={<Link href="/?sort=latest#search-results" className="flex items-center gap-1 text-sm font-semibold text-brand-600">更多 <ArrowUpRight size={14} /></Link>} />
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {latest.map((e) => <EventCard key={e.id} event={e} />)}
-        </div>
+        {latest.length === 0 ? (
+          <EmptyState icon="📝" title="目前還沒有最新活動" subtitle="成為第一位主辦人，建立你的第一場 JoinJoy 活動吧！" />
+        ) : (
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {latest.map((e) => <EventCard key={e.id} event={e} />)}
+          </div>
+        )}
       </section>
 
       <section>
         <SectionTitle eyebrow="DON'T MISS OUT" title="⏰ 即將開始" action={<Link href="/?sort=upcoming#search-results" className="flex items-center gap-1 text-sm font-semibold text-brand-600">更多 <ArrowUpRight size={14} /></Link>} />
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {upcoming.map((e) => <EventCard key={e.id} event={e} />)}
-        </div>
+        {upcoming.length === 0 ? (
+          <EmptyState icon="⏰" title="目前沒有即將開始的活動" subtitle="收藏或建立活動後，這裡會顯示你的下一個聚會。" />
+        ) : (
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {upcoming.map((e) => <EventCard key={e.id} event={e} />)}
+          </div>
+        )}
       </section>
 
       <section className="grid grid-cols-1 gap-4 md:grid-cols-4">
