@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ArrowRight, Check, Copy, MapPin, RefreshCw, Sparkles, Users, WalletCards, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 
@@ -31,6 +31,7 @@ type Plan = {
   match: number;
   tags: string[];
   warnings: string[];
+  route?: { distanceKm: number; durationMinutes: number; waypoints: string[] };
 };
 
 const initialForm: PlannerForm = {
@@ -108,7 +109,43 @@ export function PlannerClient() {
   const [selectedQuick, setSelectedQuick] = useState("");
   const [selectedPlan, setSelectedPlan] = useState<Plan | null>(null);
   const [shareOpen, setShareOpen] = useState(false);
+  const [routeLoading, setRouteLoading] = useState(false);
+  const [routeError, setRouteError] = useState("");
+  const [routes, setRoutes] = useState<Record<string, Plan["route"]>>({});
   const plans = useMemo(() => buildPlans(form, seed), [form, seed]);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function loadRoutes() {
+      if (!form.origin.trim()) return;
+      setRouteLoading(true);
+      setRouteError("");
+      const nextRoutes: Record<string, Plan["route"]> = {};
+      try {
+        await Promise.all(plans.map(async (plan) => {
+          const response = await fetch("/api/planner/route", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              origin: form.origin,
+              destinations: plan.stops.map((stop) => `${form.origin} ${stop.title}`),
+              mode: form.transport,
+            }),
+          });
+          if (!response.ok) return;
+          const data = (await response.json()) as Plan["route"];
+          nextRoutes[plan.title] = data;
+        }));
+        if (!cancelled) setRoutes(nextRoutes);
+      } catch {
+        if (!cancelled) setRouteError("路線服務暫時無法使用，已保留規劃器方案。 ");
+      } finally {
+        if (!cancelled) setRouteLoading(false);
+      }
+    }
+    void loadRoutes();
+    return () => { cancelled = true; };
+  }, [form.origin, form.transport, plans]);
 
   function update<K extends keyof PlannerForm>(key: K, value: PlannerForm[K]) {
     setForm((current) => ({ ...current, [key]: value }));
@@ -121,9 +158,10 @@ export function PlannerClient() {
   }
 
   function openGroup(plan: Plan) {
+    const route = routes[plan.title];
     window.localStorage.setItem("joinjoy:planner-preset", JSON.stringify({
       title: `${plan.emoji} ${plan.title}｜朋友出遊`,
-      description: `${plan.summary}\n\n行程安排：\n${plan.stops.map((stop) => `${stop.time}｜${stop.title}：${stop.detail}`).join("\n")}\n\n預估每人 $${plan.cost}，${plan.travel}。\n\n由 AI 出遊規劃器產生，可依實際情況調整。`,
+      description: `${plan.summary}\n\n行程安排：\n${plan.stops.map((stop) => `${stop.time}｜${stop.title}：${stop.detail}`).join("\n")}\n\n預估每人 $${plan.cost}，${route ? `Geoapify 路線約 ${route.distanceKm} 公里、${route.durationMinutes} 分鐘` : plan.travel}。\n\n由 AI 出遊規劃器產生，可依實際情況調整。`,
       eventDate: form.date,
       startTime: form.start,
       endTime: form.end,
@@ -172,8 +210,8 @@ export function PlannerClient() {
             <button onClick={() => setSeed((value) => value + 1)} className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl bg-[#67f5c8] px-5 py-3.5 font-black text-[#06131e] transition hover:bg-[#8ff8d8]"><Sparkles size={17} /> 生成我的城市方案</button>
           </div>
 
-          <div id="plans" className="space-y-4"><div className="flex items-end justify-between"><div><p className="text-xs font-bold uppercase tracking-widest text-[#58d9ff]">02 / AI SHORTLIST</p><h2 className="mt-1 text-2xl font-black">為你排出的 3 條路線</h2></div><button onClick={() => setSeed((value) => value + 1)} className="flex items-center gap-1 text-sm text-slate-400 hover:text-[#67f5c8]"><RefreshCw size={15} /> 再生成</button></div>
-            {plans.map((plan) => <article key={plan.title} className="rounded-3xl border border-slate-700/80 bg-[#102536] p-5 transition hover:-translate-y-0.5 hover:border-[#58d9ff]/60 md:p-6"><div className="flex items-start justify-between gap-4"><div className="flex gap-3"><span className="text-3xl">{plan.emoji}</span><div><h3 className="text-xl font-black">{plan.title}</h3><p className="mt-1 text-sm leading-6 text-slate-300">{plan.summary}</p></div></div><div className="rounded-2xl bg-[#67f5c8]/10 px-3 py-2 text-right"><p className="text-2xl font-black text-[#67f5c8]">{plan.match}%</p><p className="text-[10px] uppercase tracking-wider text-slate-400">match</p></div></div><div className="mt-5 space-y-3 border-l border-[#58d9ff]/40 pl-4">{plan.stops.map((stop) => <div key={stop.time} className="relative"><span className="absolute -left-[21px] top-1.5 h-2.5 w-2.5 rounded-full bg-[#58d9ff]" /><div className="flex justify-between gap-3"><p className="text-sm font-bold text-[#67f5c8]">{stop.time}｜{stop.title}</p><span className="text-xs text-slate-400">${stop.cost}</span></div><p className="text-xs text-slate-400">{stop.detail}</p></div>)}</div><div className="mt-5 flex flex-wrap gap-2">{plan.tags.map((tag) => <span key={tag} className="rounded-full bg-[#18364a] px-2.5 py-1 text-xs text-[#9deaff]">#{tag}</span>)}</div><div className="mt-5 grid grid-cols-2 gap-2 rounded-2xl bg-[#0a1a28] p-3 text-sm"><div><p className="text-xs text-slate-500">預估每人</p><p className="font-bold text-white">${plan.cost} <span className={plan.cost <= form.budget ? "text-[#67f5c8]" : "text-rose-300"}>{plan.cost <= form.budget ? "預算內" : "超出"}</span></p></div><div><p className="text-xs text-slate-500">交通</p><p className="font-bold text-white">{plan.travel}</p></div></div>{plan.warnings.map((warning) => <p key={warning} className="mt-3 text-xs text-amber-300">⚠ {warning}</p>)}<div className="mt-5 flex flex-wrap gap-2"><button onClick={() => openGroup(plan)} className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-[#58d9ff] px-4 py-3 text-sm font-black text-[#06131e] hover:bg-[#8ae7ff]"><Users size={16} /> 一鍵開團</button><button onClick={() => { setSelectedPlan(plan); setShareOpen(true); }} className="rounded-xl border border-slate-600 px-4 py-3 text-sm font-bold text-slate-200 hover:border-[#67f5c8]"><Copy size={16} /></button></div></article>)}
+          <div id="plans" className="space-y-4"><div className="flex items-end justify-between"><div><p className="text-xs font-bold uppercase tracking-widest text-[#58d9ff]">02 / AI SHORTLIST</p><h2 className="mt-1 text-2xl font-black">為你排出的 3 條路線</h2>{routeLoading && <p className="mt-1 text-xs text-cyan-300">正在用 Geoapify 計算路線…</p>}{routeError && <p className="mt-1 text-xs text-amber-300">{routeError}</p>}</div><button onClick={() => setSeed((value) => value + 1)} className="flex items-center gap-1 text-sm text-slate-400 hover:text-[#67f5c8]"><RefreshCw size={15} /> 再生成</button></div>
+            {plans.map((plan) => <article key={plan.title} className="rounded-3xl border border-slate-700/80 bg-[#102536] p-5 transition hover:-translate-y-0.5 hover:border-[#58d9ff]/60 md:p-6"><div className="flex items-start justify-between gap-4"><div className="flex gap-3"><span className="text-3xl">{plan.emoji}</span><div><h3 className="text-xl font-black">{plan.title}</h3><p className="mt-1 text-sm leading-6 text-slate-300">{plan.summary}</p></div></div><div className="rounded-2xl bg-[#67f5c8]/10 px-3 py-2 text-right"><p className="text-2xl font-black text-[#67f5c8]">{plan.match}%</p><p className="text-[10px] uppercase tracking-wider text-slate-400">match</p></div></div><div className="mt-5 space-y-3 border-l border-[#58d9ff]/40 pl-4">{plan.stops.map((stop) => <div key={stop.time} className="relative"><span className="absolute -left-[21px] top-1.5 h-2.5 w-2.5 rounded-full bg-[#58d9ff]" /><div className="flex justify-between gap-3"><p className="text-sm font-bold text-[#67f5c8]">{stop.time}｜{stop.title}</p><span className="text-xs text-slate-400">${stop.cost}</span></div><p className="text-xs text-slate-400">{stop.detail}</p></div>)}</div><div className="mt-5 flex flex-wrap gap-2">{plan.tags.map((tag) => <span key={tag} className="rounded-full bg-[#18364a] px-2.5 py-1 text-xs text-[#9deaff]">#{tag}</span>)}</div><div className="mt-5 grid grid-cols-2 gap-2 rounded-2xl bg-[#0a1a28] p-3 text-sm"><div><p className="text-xs text-slate-500">預估每人</p><p className="font-bold text-white">${plan.cost} <span className={plan.cost <= form.budget ? "text-[#67f5c8]" : "text-rose-300"}>{plan.cost <= form.budget ? "預算內" : "超出"}</span></p></div><div><p className="text-xs text-slate-500">交通</p><p className="font-bold text-white">{routes[plan.title] ? `${routes[plan.title]!.distanceKm} km｜${routes[plan.title]!.durationMinutes} 分鐘` : plan.travel}</p><p className="mt-1 text-[10px] text-slate-500">{routes[plan.title] ? "Geoapify 路線估算" : "等待地點定位"}</p></div></div>{plan.warnings.map((warning) => <p key={warning} className="mt-3 text-xs text-amber-300">⚠ {warning}</p>)}<div className="mt-5 flex flex-wrap gap-2"><button onClick={() => openGroup(plan)} className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-[#58d9ff] px-4 py-3 text-sm font-black text-[#06131e] hover:bg-[#8ae7ff]"><Users size={16} /> 一鍵開團</button><button onClick={() => { setSelectedPlan(plan); setShareOpen(true); }} className="rounded-xl border border-slate-600 px-4 py-3 text-sm font-bold text-slate-200 hover:border-[#67f5c8]"><Copy size={16} /></button></div></article>)}
           </div>
         </section>
       </main>
