@@ -69,7 +69,7 @@ async function getSections() {
   return { hot, latest, upcoming, activeCount: Number(activeCount[0]?.count ?? 0), announcement: announcement[0] ?? null };
 }
 
-async function runSearch(params: { q?: string; region?: string; date?: string; sort?: string }) {
+async function runSearch(params: { q?: string; region?: string; date?: string; tag?: string; sort?: string }) {
   const conditions = [eq(events.isPrivate, false), isNull(events.groupId), ne(events.status, "cancelled")];
   if (params.q) {
     conditions.push(
@@ -82,6 +82,7 @@ async function runSearch(params: { q?: string; region?: string; date?: string; s
   }
   if (params.region) conditions.push(eq(events.region, params.region));
   if (params.date) conditions.push(eq(events.eventDate, params.date));
+  if (params.tag) conditions.push(sql`${events.tags} ? ${params.tag}`);
 
   let orderBy = desc(events.createdAt);
   if (params.sort === "popular") orderBy = desc(sql`coalesce(${participantCountSub.count}, 0)`);
@@ -91,10 +92,11 @@ async function runSearch(params: { q?: string; region?: string; date?: string; s
   return results;
 }
 
-function searchResultTitle(params: { q?: string; region?: string; date?: string; sort?: string }) {
+function searchResultTitle(params: { q?: string; region?: string; date?: string; tag?: string; sort?: string }) {
   if (params.sort === "popular") return { eyebrow: "TRENDING NOW", title: "🔥 熱門活動" };
   if (params.sort === "upcoming") return { eyebrow: "DON'T MISS OUT", title: "⏰ 即將開始的活動" };
   if (params.sort === "latest") return { eyebrow: "JUST ANNOUNCED", title: "🆕 最新活動" };
+  if (params.tag) return { eyebrow: "INTEREST MATCH", title: `🏷️ #${params.tag} 活動` };
   if (params.q) return { eyebrow: "SEARCH RESULTS", title: `🔍 「${params.q}」的搜尋結果` };
   return { eyebrow: "FILTERED", title: "🔍 篩選結果" };
 }
@@ -102,10 +104,10 @@ function searchResultTitle(params: { q?: string; region?: string; date?: string;
 export default async function HomePage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; region?: string; date?: string; sort?: string }>;
+  searchParams: Promise<{ q?: string; region?: string; date?: string; tag?: string; sort?: string }>;
 }) {
   const params = await searchParams;
-  const hasFilters = !!(params.q || params.region || params.date || params.sort);
+  const hasFilters = !!(params.q || params.region || params.date || params.tag || params.sort);
 
   const { hot, latest, upcoming, activeCount, announcement } = await getSections();
   const searchResults = hasFilters ? await runSearch(params) : [];
