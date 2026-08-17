@@ -180,6 +180,16 @@ function EventForm({ credits, isAdmin, presetGroupId }: { credits: number; isAdm
   const [myGroups, setMyGroups] = useState<{ id: number; name: string }[]>([]);
   useEffect(() => {
     fetch("/api/groups/mine").then((r) => (r.ok ? r.json() : { groups: [] })).then((d) => setMyGroups(d.groups || []));
+    try {
+      const raw = window.localStorage.getItem("joinjoy:planner-preset");
+      if (raw) {
+        const preset = JSON.parse(raw);
+        window.setTimeout(() => setForm((current) => ({ ...current, ...preset })), 0);
+        window.localStorage.removeItem("joinjoy:planner-preset");
+      }
+    } catch {
+      // Ignore malformed planner presets and keep the normal empty form.
+    }
   }, []);
 
   async function handleUpload(file: File, cover: boolean) {
