@@ -182,6 +182,7 @@ export function PlannerClient() {
       const nextPlaces: Record<string, Array<Place | null>> = {};
       const nextRoutes: Record<string, Plan["route"]> = {};
       let placesServiceResponded = false;
+      let placesServiceError = "";
       try {
         await Promise.all(plans.map(async (plan) => {
           const placesResponse = await fetch("/api/planner/places", {
@@ -189,8 +190,10 @@ export function PlannerClient() {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ origin: form.origin, stops: plan.stops.map((stop) => ({ query: stop.title, category: stop.category })) }),
           });
-          const placesData = placesResponse.ok ? (await placesResponse.json()) as { places?: Array<Place | null> } : null;
+          const placesPayload = await placesResponse.json().catch(() => null) as { places?: Array<Place | null>; error?: string } | null;
+          const placesData = placesResponse.ok ? placesPayload : null;
           if (placesResponse.ok) placesServiceResponded = true;
+          else if (!placesServiceError && placesPayload?.error) placesServiceError = placesPayload.error;
           const planPlaces = placesData?.places || [];
           nextPlaces[plan.title] = planPlaces;
           const destinations = planPlaces.filter((place): place is Place => Boolean(place)).map((place) => place.address || place.name);
@@ -205,10 +208,10 @@ export function PlannerClient() {
         if (!cancelled) {
           setPlaces(nextPlaces);
           setRoutes(nextRoutes);
-          if (!placesServiceResponded) setRouteError("地點服務暫時無法使用，已保留規劃器方案。 ");
+          if (!placesServiceResponded) setRouteError(placesServiceError ? `${placesServiceError}，已保留規劃器方案。` : "地點服務暫時無法使用，已保留規劃器方案。");
         }
       } catch {
-        if (!cancelled) setRouteError("地點或路線服務暫時無法使用，已保留規劃器方案。 ");
+        if (!cancelled) setRouteError(placesServiceError ? `${placesServiceError}，已保留規劃器方案。` : "地點或路線服務暫時無法使用，已保留規劃器方案。");
       } finally {
         if (!cancelled) setRouteLoading(false);
       }
