@@ -34,6 +34,8 @@ type FoursquareCategory = {
 type FoursquareResult = {
   fsq_place_id?: string;
   name?: string;
+  latitude?: number;
+  longitude?: number;
   location?: FoursquareLocation;
   categories?: FoursquareCategory[];
 };
@@ -53,7 +55,7 @@ type FoursquareCategoryMap = Record<string, { ids: string[]; query: string }>;
 
 const CATEGORY_MAP: FoursquareCategoryMap = {
   "catering.restaurant": { ids: ["4bf58dd8d48988d145941735"], query: "餐廳" },
-  "catering.cafe": { ids: ["4bf58dd8d48988d16d941735"], query: "咖啡廳" },
+  "catering.cafe": { ids: ["4bf58dd8d48988d16d941735"], query: "coffee shop" },
   "entertainment.cinema": { ids: ["4bf58dd8d48988d17f941735"], query: "cinema" },
   "tourism": { ids: ["4bf58dd8d48988d12d941735"], query: "景點" },
   activity: { ids: ["4bf58dd8d48988d1e3931735"], query: "玩樂" },
@@ -135,7 +137,7 @@ async function searchPlace(
   url.searchParams.set("ll", `${origin.lat},${origin.lon}`);
   url.searchParams.set("radius", "12000");
   url.searchParams.set("limit", "1");
-  url.searchParams.set("fields", "fsq_place_id,name,location,categories");
+  url.searchParams.set("fields", "fsq_place_id,name,location,categories,latitude,longitude");
   url.searchParams.set("fsq_category_ids", category.ids.join(","));
   if (stop.query?.trim()) url.searchParams.set("query", stop.query.trim());
   else url.searchParams.set("query", category.query);
@@ -147,12 +149,19 @@ async function searchPlace(
     },
     next: { revalidate: 900 },
   });
-  if (!response.ok) return null;
+  if (!response.ok) {
+    console.warn("[planner/places] foursquare non-ok", response.status, stop.category, stop.query);
+    return null;
+  }
   const data = (await response.json()) as FoursquareSearchResponse;
-  const result = data.results?.[0];
+  if (!Array.isArray(data.results)) {
+    console.warn("[planner/places] unexpected foursquare payload", JSON.stringify(data).slice(0, 300));
+    return null;
+  }
+  const result = data.results[0];
   if (!result) return null;
-  const latitude = result.location?.latitude;
-  const longitude = result.location?.longitude;
+  const latitude = typeof result.latitude === "number" ? result.latitude : result.location?.latitude;
+  const longitude = typeof result.longitude === "number" ? result.longitude : result.location?.longitude;
   if (typeof latitude !== "number" || typeof longitude !== "number") return null;
   return {
     name: result.name || stop.query || "附近地點",
