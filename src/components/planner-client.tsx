@@ -21,6 +21,14 @@ type PlannerForm = {
   custom: string;
 };
 
+type WeatherPeriod = {
+  label: string;
+  summary: string;
+  weatherCode: number;
+  temperature: number;
+  precipitationProbability: number;
+};
+
 type Weather = {
   date: string;
   location: { name: string; admin1: string | null; latitude: number; longitude: number };
@@ -34,6 +42,7 @@ type Weather = {
   rainy: boolean;
   hot: boolean;
   recommendation: string;
+  periods?: WeatherPeriod[];
 };
 type Place = {
   name: string;
@@ -133,6 +142,9 @@ export function PlannerClient() {
   const [weather, setWeather] = useState<Weather | null>(null);
   const [weatherLoading, setWeatherLoading] = useState(false);
   const [weatherError, setWeatherError] = useState("");
+  const [generating, setGenerating] = useState(false);
+  const [generationNote, setGenerationNote] = useState("");
+  const [generationRequested, setGenerationRequested] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<Plan | null>(null);
   const [shareOpen, setShareOpen] = useState(false);
   const [routeLoading, setRouteLoading] = useState(false);
@@ -140,6 +152,12 @@ export function PlannerClient() {
   const [routes, setRoutes] = useState<Record<string, Plan["route"]>>({});
   const [places, setPlaces] = useState<Record<string, Array<Place | null>>>({});
   const plans = useMemo(() => buildPlans({ ...form, indoor: form.indoor || Boolean(weather?.rainy) }, seed), [form, seed, weather?.rainy]);
+
+  function generatePlans() {
+    setGenerationRequested(true);
+    setGenerationNote("");
+    setSeed((value) => value + 1);
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -177,6 +195,10 @@ export function PlannerClient() {
     let cancelled = false;
     async function loadPlacesAndRoutes() {
       if (!form.origin.trim()) return;
+      if (generationRequested) {
+        setGenerating(true);
+        setGenerationNote("");
+      }
       setRouteLoading(true);
       setRouteError("");
       const nextPlaces: Record<string, Array<Place | null>> = {};
@@ -208,17 +230,24 @@ export function PlannerClient() {
         if (!cancelled) {
           setPlaces(nextPlaces);
           setRoutes(nextRoutes);
-          if (!placesServiceResponded) setRouteError(placesServiceError ? `${placesServiceError}，已保留規劃器方案。` : "地點服務暫時無法使用，已保留規劃器方案。");
+          if (!placesServiceResponded) {
+            setRouteError(placesServiceError ? `${placesServiceError}，已保留規劃器方案。` : "地點服務暫時無法使用，已保留規劃器方案。");
+          }
+          setGenerationNote("已為你生成 3 條城市路線");
+          if (typeof document !== "undefined") document.getElementById("plans")?.scrollIntoView({ behavior: "smooth", block: "start" });
         }
       } catch {
         if (!cancelled) setRouteError(placesServiceError ? `${placesServiceError}，已保留規劃器方案。` : "地點或路線服務暫時無法使用，已保留規劃器方案。");
       } finally {
-        if (!cancelled) setRouteLoading(false);
+        if (!cancelled) {
+          setRouteLoading(false);
+          if (generationRequested) setGenerating(false);
+        }
       }
     }
     void loadPlacesAndRoutes();
     return () => { cancelled = true; };
-  }, [form.origin, form.transport, plans]);
+  }, [form.origin, form.transport, plans, generationRequested]);
 
   function update<K extends keyof PlannerForm>(key: K, value: PlannerForm[K]) {
     setForm((current) => ({ ...current, [key]: value }));
@@ -276,15 +305,15 @@ export function PlannerClient() {
               <label className="text-sm text-main">開始時間<input type="time" value={form.start} onChange={(e) => update("start", e.target.value)} className="planner-input" /></label>
               <label className="text-sm text-main">最晚回家<input type="time" value={form.end} onChange={(e) => update("end", e.target.value)} className="planner-input" /></label>
             </div>
-            <div className="mt-4 rounded-2xl border border-brand-400/20 bg-[var(--color-bg-soft)] p-4"><div className="flex items-start justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-widest text-brand-400">LIVE WEATHER SCAN</p><p className="mt-1 text-sm font-bold text-main">{weatherLoading ? "正在讀取天氣…" : weather ? `${weather.location.name}｜${weather.summary}` : "輸入日期與出發地後掃描"}</p>{weather && <p className="mt-1 text-xs text-soft">{weather.minTemperature}–{weather.maxTemperature}°C｜降雨機率 {weather.precipitationProbability}%｜雨量 {weather.precipitationMm} mm</p>}{weatherError && <p className="mt-1 text-xs text-coral-500">{weatherError}</p>}{weather && <p className="mt-2 text-xs text-brand-500">{weather.recommendation}</p>}</div><span className="rounded-full bg-brand-400/10 px-2 py-1 text-xs text-brand-700">{weather?.rainy ? "雨備模式" : weather ? "可探索" : "等待"}</span></div></div>
+            <div className="mt-4 rounded-2xl border border-brand-400/20 bg-[var(--color-bg-soft)] p-4"><div className="flex items-start justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-widest text-brand-400">LIVE WEATHER SCAN</p><p className="mt-1 text-sm font-bold text-main">{weatherLoading ? "正在讀取天氣…" : weather ? `${weather.location.name}｜${weather.summary}` : "輸入日期與出發地後掃描"}</p>{weather && <p className="mt-1 text-xs text-soft">{weather.minTemperature}–{weather.maxTemperature}°C｜降雨機率 {weather.precipitationProbability}%｜雨量 {weather.precipitationMm} mm</p>}{weather?.periods && weather.periods.length > 0 && <div className="mt-2 grid grid-cols-3 gap-1.5">{weather.periods.map((period) => <div key={period.label} className="rounded-xl bg-surface p-2 text-center"><p className="text-[10px] font-bold uppercase tracking-wider text-brand-400">{period.label}</p><p className="mt-0.5 text-xs font-bold text-main">{period.summary}</p><p className="mt-0.5 text-[10px] text-soft">{period.temperature}°C｜雨 {period.precipitationProbability}%</p></div>)}</div>}{weatherError && <p className="mt-1 text-xs text-coral-500">{weatherError}</p>}{weather && <p className="mt-2 text-xs text-brand-500">{weather.recommendation}</p>}</div><span className="rounded-full bg-brand-400/10 px-2 py-1 text-xs text-brand-700">{weather?.rainy ? "雨備模式" : weather ? "可探索" : "等待"}</span></div></div>
             <p className="mb-3 mt-6 text-[11px] font-bold uppercase tracking-[0.2em] text-soft">移動範圍 / MOBILITY</p><div className="grid gap-4 sm:grid-cols-2"><label className="text-sm text-main">交通方式<select value={form.transport} onChange={(e) => update("transport", e.target.value)} className="planner-input"><option>大眾運輸</option><option>自行開車</option><option>機車</option><option>走路</option></select></label><label className="text-sm text-main">接受距離<select value={form.distance} onChange={(e) => update("distance", e.target.value)} className="planner-input"><option>3 公里內</option><option>10 公里內</option><option>30 公里內</option><option>不限距離</option></select></label></div>
             <p className="mb-3 mt-6 text-[11px] font-bold uppercase tracking-[0.2em] text-soft">偏好訊號 / VIBE</p><div><p className="mb-2 text-sm text-main">活動風格</p><div className="flex flex-wrap gap-2">{vibes.map((item) => <button key={item} onClick={() => update("vibe", item)} className={`rounded-lg px-3 py-2 text-sm ${form.vibe === item ? "bg-brand-400 font-bold text-white" : "bg-brand-50 text-brand-700"}`}>{item}</button>)}</div></div>
             <label className="mt-5 flex items-center gap-3 text-sm text-main"><input type="checkbox" checked={form.indoor} onChange={(e) => update("indoor", e.target.checked)} className="h-4 w-4 accent-brand-500" />優先安排室內或雨備方案</label>
             <label className="mt-5 block text-sm text-main">還有什麼不能妥協？<textarea value={form.custom} onChange={(e) => update("custom", e.target.value)} className="planner-input min-h-24 resize-none" placeholder="例如：不要太吵、希望可以坐很久聊天、不要走太多路" /></label>
-            <button onClick={() => setSeed((value) => value + 1)} className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl bg-brand-500 px-5 py-3.5 font-black text-white transition hover:bg-brand-400"><Sparkles size={17} /> 生成我的城市方案</button>
+            <button disabled={generating} onClick={generatePlans} className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl bg-brand-500 px-5 py-3.5 font-black text-white transition hover:bg-brand-400 disabled:opacity-60"><Sparkles size={17} /> {generating ? "正在生成城市方案…" : "生成我的城市方案"}</button>
           </div>
 
-          <div id="plans" className="space-y-4"><div className="flex items-end justify-between"><div><p className="text-xs font-bold uppercase tracking-widest text-brand-400">02 / AI SHORTLIST</p><h2 className="mt-1 text-2xl font-black">為你排出的 3 條路線</h2>{routeLoading && <p className="mt-1 text-xs text-brand-400">正在用 Geoapify 計算路線…</p>}{routeError && <p className="mt-1 text-xs text-coral-500">{routeError}</p>}</div><button onClick={() => setSeed((value) => value + 1)} className="flex items-center gap-1 text-sm text-soft hover:text-brand-500"><RefreshCw size={15} /> 再生成</button></div>
+          <div id="plans" className="space-y-4"><div className="flex items-end justify-between"><div><p className="text-xs font-bold uppercase tracking-widest text-brand-400">02 / AI SHORTLIST</p><h2 className="mt-1 text-2xl font-black">為你排出的 3 條路線</h2>{generating && <p className="mt-1 text-xs text-brand-400">正在搜尋附近真實地點並計算路線…</p>}{routeLoading && !generating && <p className="mt-1 text-xs text-brand-400">正在計算路線…</p>}{routeError && <p className="mt-1 text-xs text-coral-500">{routeError}</p>}{generationNote && <p className="mt-1 text-xs font-bold text-brand-500">{generationNote}</p>}</div><button disabled={generating} onClick={() => { setGenerationRequested(true); setGenerationNote(""); setSeed((value) => value + 1); }} className="flex items-center gap-1 text-sm text-soft hover:text-brand-500 disabled:opacity-60"><RefreshCw size={15} /> 再生成</button></div>
             {plans.map((plan, planIndex) => <article key={plan.title} className="rounded-3xl border border-[var(--color-border)] bg-surface p-5 transition hover:-translate-y-0.5 hover:border-brand-400/60 md:p-6"><div className="flex items-start justify-between gap-4"><div className="flex gap-3"><span className="text-3xl">{plan.emoji}</span><div><div className="flex flex-wrap items-center gap-2"><h3 className="text-xl font-black">{plan.title}</h3>{planIndex === 0 && <span className="rounded-full bg-brand-500 px-2 py-1 text-[10px] font-black uppercase tracking-wider text-white">最佳匹配</span>}</div><p className="mt-1 text-sm leading-6 text-main">{plan.summary}</p></div></div><div className="rounded-2xl bg-brand-500/10 px-3 py-2 text-right"><p className="text-2xl font-black text-brand-500">{plan.match}%</p><p className="text-[10px] uppercase tracking-wider text-soft">match</p></div></div><div className="mt-5 space-y-3 border-l border-brand-400/40 pl-4">{plan.stops.map((stop, index) => <div key={stop.time} className="relative"><span className="absolute -left-[21px] top-1.5 h-2.5 w-2.5 rounded-full bg-brand-400" /><div className="flex justify-between gap-3"><p className="text-sm font-bold text-brand-500">{stop.time}｜{stop.title}</p><span className="text-xs text-soft">${stop.cost}</span></div><p className="text-xs text-soft">{places[plan.title]?.[index]?.name || stop.detail}</p>{places[plan.title]?.[index]?.address && <p className="mt-1 text-[11px] text-soft">{places[plan.title]?.[index]?.address}</p>}</div>)}</div><div className="mt-5 flex flex-wrap gap-2">{plan.tags.map((tag) => <span key={tag} className="rounded-full bg-brand-50 px-2.5 py-1 text-xs text-brand-700">#{tag}</span>)}</div><div className="mt-5 grid grid-cols-1 gap-2 rounded-2xl bg-[var(--color-bg-soft)] p-3 text-sm sm:grid-cols-2"><div><p className="text-xs text-soft">預估每人</p><p className="font-bold text-main">${plan.cost} <span className={plan.cost <= form.budget ? "text-brand-500" : "text-rose-300"}>{plan.cost <= form.budget ? "預算內" : "超出"}</span></p></div><div><p className="text-xs text-soft">交通</p><p className="font-bold text-main">{routes[plan.title] ? `${routes[plan.title]!.distanceKm} km｜${routes[plan.title]!.durationMinutes} 分鐘` : plan.travel}</p><p className="mt-1 text-[10px] text-soft">{routes[plan.title] ? "Geoapify 路線估算" : "等待地點定位"}</p></div></div>{plan.warnings.map((warning) => <p key={warning} className="mt-3 text-xs text-coral-500">⚠ {warning}</p>)}<div className="mt-5 flex flex-col gap-2 sm:flex-row"><button onClick={() => openGroup(plan)} className="flex min-h-12 flex-1 items-center justify-center gap-2 rounded-xl bg-brand-400 px-4 py-3 text-sm font-black text-white shadow-lg shadow-black/30 hover:bg-brand-200"><Users size={16} /> 一鍵開團</button><button onClick={() => { setSelectedPlan(plan); setShareOpen(true); }} className="flex min-h-12 items-center justify-center rounded-xl border border-[var(--color-border)] px-4 py-3 text-sm font-bold text-slate-200 hover:border-brand-500"><Copy size={16} /></button></div></article>)}
           </div>
         </section>

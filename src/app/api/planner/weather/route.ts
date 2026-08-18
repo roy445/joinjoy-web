@@ -23,7 +23,72 @@ type ForecastResponse = {
     precipitation_sum?: number[];
     wind_speed_10m_max?: number[];
   };
+  hourly?: {
+    time?: string[];
+    temperature_2m?: number[];
+    precipitation_probability?: number[];
+    weather_code?: number[];
+  };
 };
+
+type WeatherPeriod = {
+  label: string;
+  summary: string;
+  weatherCode: number;
+  temperature: number;
+  precipitationProbability: number;
+};
+
+function periodWindow(label: string): [number, number] {
+  if (label === "morning") return [0, 12];
+  if (label === "afternoon") return [12, 18];
+  return [18, 24];
+}
+
+function summarizePeriod(hourly: ForecastResponse["hourly"], label: string): WeatherPeriod | null {
+  const [startHour, endHour] = periodWindow(label);
+  const times = hourly?.time || [];
+  const temperatures = hourly?.temperature_2m || [];
+  const probabilities = hourly?.precipitation_probability || [];
+  const codes = hourly?.weather_code || [];
+  const indexes = times
+    .map((time, index) => {
+      const hour = new Date(time).getHours();
+      return hour >= startHour && hour < endHour ? index : -1;
+    })
+    .filter((index) => index >= 0);
+  if (!indexes.length) return null;
+  const periodCodes = indexes.map((index) => codes[index]).filter((code) => typeof code === "number");
+  const code = periodCodes.length ? periodCodes.reduce((a, b) => (b > a ? b : a)) : 0;
+  const temperature = Math.round((indexes.map((index) => temperatures[index]).filter((t) => typeof t === "number")[0] ?? 0));
+  const precipitationProbability = Math.max(...indexes.map((index) => probabilities[index]).filter((p) => typeof p === "number"), 0);
+  const labelName = label === "morning" ? "上午" : label === "afternoon" ? "下午" : "晚上";
+  const descriptions: Record<number, string> = {
+    0: "晴朗",
+    1: "大致晴朗",
+    2: "多雲",
+    3: "多雲",
+    45: "有霧",
+    48: "有霧",
+    51: "細雨",
+    53: "細雨",
+    55: "細雨",
+    61: "下雨",
+    63: "下雨",
+    65: "下雨",
+    80: "陣雨",
+    81: "陣雨",
+    95: "雷雨",
+    96: "雷雨",
+  };
+  return {
+    label: labelName,
+    summary: descriptions[code] ?? "天氣變化",
+    weatherCode: code,
+    temperature,
+    precipitationProbability: Math.round(precipitationProbability),
+  };
+}
 
 function jsonError(message: string, status: number) {
   return NextResponse.json({ error: message }, { status });
@@ -110,6 +175,7 @@ export async function POST(request: NextRequest) {
     forecastUrl.searchParams.set("latitude", String(location.latitude));
     forecastUrl.searchParams.set("longitude", String(location.longitude));
     forecastUrl.searchParams.set("daily", "weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,precipitation_sum,wind_speed_10m_max");
+    forecastUrl.searchParams.set("hourly", "temperature_2m,precipitation_probability,weather_code");
     forecastUrl.searchParams.set("start_date", date);
     forecastUrl.searchParams.set("end_date", date);
     forecastUrl.searchParams.set("timezone", "Asia/Taipei");
@@ -128,6 +194,15 @@ export async function POST(request: NextRequest) {
     const rainy = precipitationProbability >= 40 || precipitationMm >= 1 || code >= 51;
     const hot = maxTemperature >= 32;
 
+    const hourly = forecast.hourly;
+    const periods: WeatherPeriod[] = [];
+    if (hourly) {
+      for (const label of ["morning", "afternoon", "evening"] as const) {
+        const period = summarizePeriod(hourly, label);
+        if (period) periods.push(period);
+      }
+    }
+
     return NextResponse.json({
       date,
       location: {
@@ -138,6 +213,7 @@ export async function POST(request: NextRequest) {
       },
       summary: weatherDescription(code),
       weatherCode: code,
+      periods,
       minTemperature,
       maxTemperature,
       precipitationProbability,
