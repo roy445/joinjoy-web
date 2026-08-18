@@ -137,6 +137,25 @@ function buildPlans(form: PlannerForm, seed: number): Plan[] {
 export function PlannerClient() {
   const router = useRouter();
   const [form, setForm] = useState(initialForm);
+  const [me, setMe] = useState<any>(null);
+  const [meLoading, setMeLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/auth/me")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (!cancelled) {
+          setMe(d?.user ?? null);
+          setMeLoading(false);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setMeLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, []);
+
   const [seed, setSeed] = useState(1);
   const [selectedQuick, setSelectedQuick] = useState("");
   const [weather, setWeather] = useState<Weather | null>(null);
@@ -274,11 +293,30 @@ export function PlannerClient() {
     }));
     router.push("/events/create?planner=1");
   }
-
   async function sharePlan(plan: Plan) {
     const text = `${plan.emoji} ${plan.title}\n${plan.summary}\n預估每人 $${plan.cost}｜${plan.match}% 符合條件`;
     if (navigator.share) await navigator.share({ title: "JoinJoy AI 出遊方案", text, url: window.location.href });
     else { await navigator.clipboard.writeText(`${text}\n${window.location.href}`); setShareOpen(true); }
+  }
+
+  if (!me) {
+    return (
+      <div className="mx-auto flex max-w-3xl flex-col items-center gap-4 px-4 py-20 text-center">
+        <div className="rounded-[28px] border border-[var(--color-border)] bg-surface p-10 shadow-xl">
+          <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-brand-500/10">
+            <Users className="text-brand-500" size={32} />
+          </div>
+          <h1 className="text-2xl font-black text-main">AI 出遊規劃需要登入</h1>
+          <p className="mx-auto mt-3 max-w-md text-sm leading-relaxed text-soft">
+            城市探索 AI 規劃器會使用你的出發地與偏好生成揪團方案，登入後也能直接一鍵開團。
+          </p>
+          <div className="mt-7 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
+            <a href="/login" className="btn-brand rounded-full px-8 py-3 text-sm font-bold">前往登入</a>
+            <button onClick={() => router.push("/")} className="rounded-full border border-[var(--color-border)] px-8 py-3 text-sm font-bold text-soft hover:border-brand-400 hover:text-main">回到首頁</button>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (
