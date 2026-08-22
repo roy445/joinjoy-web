@@ -8,7 +8,7 @@ import { SearchBar } from "@/components/search-bar";
 import { SectionTitle, EmptyState } from "@/components/ui";
 import { EventCard } from "@/components/event-card";
 import { RecommendedSection } from "@/components/recommended-section";
-import { ArrowUpRight, Megaphone } from "lucide-react";
+import { ArrowUpRight, Megaphone, Sparkles } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -114,13 +114,29 @@ export default async function HomePage({
 
   return (
     <div className="mx-auto flex max-w-7xl flex-col gap-10 px-4 py-6 md:px-8 md:py-8">
-      {announcement && (
-        <div className="animate-fade-up flex items-center gap-3 rounded-2xl bg-gradient-to-r from-brand-500/10 to-coral-500/10 px-4 py-3 text-sm">
-          <Megaphone size={18} className="shrink-0 text-brand-600" />
-          <span className="font-semibold text-main">{announcement.title}</span>
-          <span className="truncate text-soft">{announcement.content}</span>
-        </div>
-      )}
+      <div className="flex flex-col gap-3">
+        <Link href="/planner" className="animate-fade-up group flex items-center gap-3 rounded-2xl bg-gradient-to-r from-brand-500 to-brand-600 px-4 py-3.5 text-sm text-white shadow-lg shadow-brand-500/20 transition hover:scale-[1.01] active:scale-[0.99]">
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-white/20 text-white">
+            <Sparkles size={18} />
+          </div>
+          <div className="flex-1">
+            <span className="flex items-center gap-2 font-black">
+              新功能上線啦！✨ AI 城市探索規劃器
+              <span className="rounded bg-white/20 px-1.5 py-0.5 text-[10px] font-black uppercase tracking-wider">Beta</span>
+            </span>
+            <p className="mt-0.5 text-xs text-white/80">別再問「要去哪？」讓 AI 替你安排專屬揪團方案，一鍵開團！</p>
+          </div>
+          <ArrowUpRight size={20} className="shrink-0 opacity-60 transition group-hover:translate-x-0.5 group-hover:-translate-y-0.5 group-hover:opacity-100" />
+        </Link>
+
+        {announcement && (
+          <div className="animate-fade-up flex items-center gap-3 rounded-2xl bg-gradient-to-r from-brand-500/10 to-coral-500/10 px-4 py-3 text-sm">
+            <Megaphone size={18} className="shrink-0 text-brand-600" />
+            <span className="font-semibold text-main">{announcement.title}</span>
+            <span className="truncate text-soft">{announcement.content}</span>
+          </div>
+        )}
+      </div>
 
       {/* Hero */}
       <section className="animate-fade-up relative overflow-hidden rounded-[32px] bg-gradient-to-br from-brand-50 via-cream-50 to-coral-50 p-6 dark:from-[#152420] dark:via-[#151b1d] dark:to-[#241a18] md:p-10">
