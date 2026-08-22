@@ -324,9 +324,18 @@ export function PlannerClient() {
       <div className="relative overflow-hidden border-b border-[var(--color-border)] bg-[linear-gradient(135deg,var(--color-brand-50),var(--color-cream-50),var(--color-coral-50))]">
         <div className="pointer-events-none absolute -right-20 top-16 h-72 w-72 rounded-full border border-brand-200" />
         <div className="mx-auto max-w-6xl px-4 py-12 md:px-8 md:py-20">
-          <p className="mb-4 flex items-center gap-2 text-xs font-bold uppercase tracking-[0.28em] text-brand-500"><Sparkles size={15} /> CITY EXPLORER / AI PLANNER</p>
+          <div className="mb-4 flex items-center gap-3">
+            <p className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.28em] text-brand-500"><Sparkles size={15} /> CITY EXPLORER / AI PLANNER</p>
+            <span className="rounded-md bg-brand-500 px-2 py-0.5 text-[10px] font-black tracking-wider text-white">BETA</span>
+          </div>
           <h1 className="max-w-3xl text-4xl font-black leading-tight tracking-tight md:text-6xl">別再問「要去哪？」<br /><span className="text-brand-400">讓城市替你安排。</span></h1>
-          <p className="mt-5 max-w-2xl text-base leading-7 text-main md:text-lg">輸入你們的時間、預算與喜好，得到能直接揪團的完整出遊方案。</p><div className="mt-7 grid max-w-2xl grid-cols-3 gap-2 rounded-2xl border border-brand-500/20 bg-surface/80 p-2 text-[10px] uppercase tracking-wider text-soft sm:text-xs"><div className="rounded-xl bg-brand-400/10 px-3 py-2"><span className="mb-1 block h-1.5 w-1.5 rounded-full bg-brand-500" />條件鎖定</div><div className={`rounded-xl px-3 py-2 ${weatherLoading ? "bg-coral-50 text-coral-500" : weather ? "bg-brand-500/10 text-brand-500" : "bg-[var(--color-bg-soft)]"}`}><span className={`mb-1 block h-1.5 w-1.5 rounded-full ${weatherLoading ? "bg-coral-500" : weather ? "bg-brand-500" : "bg-brand-300"}`} />{weatherLoading ? "天氣掃描中" : weather ? "天氣已同步" : "等待天氣"}</div><div className={`rounded-xl px-3 py-2 ${routeLoading ? "bg-coral-50 text-coral-500" : routes[plans[0]?.title] ? "bg-brand-400/10 text-brand-700" : "bg-[var(--color-bg-soft)]"}`}><span className={`mb-1 block h-1.5 w-1.5 rounded-full ${routeLoading ? "bg-coral-500" : routes[plans[0]?.title] ? "bg-brand-400" : "bg-brand-300"}`} />{routeLoading ? "路線計算中" : routes[plans[0]?.title] ? "路線已就緒" : "等待路線"}</div></div>
+          <p className="mt-5 max-w-2xl text-base leading-7 text-main md:text-lg">輸入你們的時間、預算與喜好，得到能直接揪團的完整出遊方案。</p>
+          <div className="mt-6 flex max-w-2xl items-start gap-3 rounded-2xl border border-coral-500/20 bg-coral-50/50 p-4 text-xs leading-relaxed text-coral-700">
+            <span className="mt-0.5 shrink-0 rounded-full bg-coral-500 p-1 text-white"><Sparkles size={10} /></span>
+            <p>
+              <strong>AI 生成提醒：</strong>本功能使用人工智慧技術輔助規劃，行程中的店家資訊、天氣預測及路線時間僅供參考。實際狀況（如營業時間、訂位情形、路況）請以現場或官方資訊為準。
+            </p>
+          </div><div className="mt-7 grid max-w-2xl grid-cols-3 gap-2 rounded-2xl border border-brand-500/20 bg-surface/80 p-2 text-[10px] uppercase tracking-wider text-soft sm:text-xs"><div className="rounded-xl bg-brand-400/10 px-3 py-2"><span className="mb-1 block h-1.5 w-1.5 rounded-full bg-brand-500" />條件鎖定</div><div className={`rounded-xl px-3 py-2 ${weatherLoading ? "bg-coral-50 text-coral-500" : weather ? "bg-brand-500/10 text-brand-500" : "bg-[var(--color-bg-soft)]"}`}><span className={`mb-1 block h-1.5 w-1.5 rounded-full ${weatherLoading ? "bg-coral-500" : weather ? "bg-brand-500" : "bg-brand-300"}`} />{weatherLoading ? "天氣掃描中" : weather ? "天氣已同步" : "等待天氣"}</div><div className={`rounded-xl px-3 py-2 ${routeLoading ? "bg-coral-50 text-coral-500" : routes[plans[0]?.title] ? "bg-brand-400/10 text-brand-700" : "bg-[var(--color-bg-soft)]"}`}><span className={`mb-1 block h-1.5 w-1.5 rounded-full ${routeLoading ? "bg-coral-500" : routes[plans[0]?.title] ? "bg-brand-400" : "bg-brand-300"}`} />{routeLoading ? "路線計算中" : routes[plans[0]?.title] ? "路線已就緒" : "等待路線"}</div></div>
         </div>
       </div>
 
