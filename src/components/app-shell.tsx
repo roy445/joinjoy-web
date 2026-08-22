@@ -83,7 +83,12 @@ export function AppShell({ user, children }: { user: ClientUser | null; children
                     )}
                   >
                     <Icon size={18} />
-                    {item.label}
+                    <span className="flex flex-1 items-center justify-between">
+                      {item.label}
+                      {item.href === "/planner" && (
+                        <span className="rounded bg-brand-500 px-1 py-0.5 text-[8px] font-black leading-none text-white">BETA</span>
+                      )}
+                    </span>
                   </Link>
                 </li>
               );
@@ -110,7 +115,12 @@ export function AppShell({ user, children }: { user: ClientUser | null; children
                     )}
                   >
                     <Icon size={18} />
-                    {item.label}
+                    <span className="flex flex-1 items-center justify-between">
+                      {item.label}
+                      {item.href === "/planner" && (
+                        <span className="rounded bg-brand-500 px-1 py-0.5 text-[8px] font-black leading-none text-white">BETA</span>
+                      )}
+                    </span>
                   </Link>
                 </li>
               );
@@ -239,9 +249,12 @@ export function AppShell({ user, children }: { user: ClientUser | null; children
           const active = pathname === item.href;
           const Icon = item.icon;
           return (
-            <Link key={item.href} href={item.href} className={cn("flex flex-col items-center gap-0.5 px-2 py-1 text-[11px]", active ? "text-brand-600" : "text-soft")}>
+            <Link key={item.href} href={item.href} className={cn("relative flex flex-col items-center gap-0.5 px-2 py-1 text-[11px]", active ? "text-brand-600" : "text-soft")}>
               <Icon size={20} />
               {item.label}
+              {item.href === "/planner" && (
+                <span className="absolute right-0.5 top-0.5 rounded bg-brand-500 px-0.5 py-0.25 text-[7px] font-black leading-none text-white scale-90">BETA</span>
+              )}
             </Link>
           );
         })}
