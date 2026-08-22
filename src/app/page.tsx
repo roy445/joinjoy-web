@@ -127,16 +127,12 @@ export default async function HomePage({
             <p className="mt-0.5 text-xs text-white/80">別再問「要去哪？」讓 AI 替你安排專屬揪團方案，一鍵開團！</p>
           </div>
           <div className="flex items-center gap-2">
-            <button 
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                window.location.href = "/legal/guidelines";
-              }}
+            <Link 
+              href="/legal/guidelines"
               className="hidden rounded-full bg-white/20 px-3 py-1 text-[10px] font-bold text-white hover:bg-white/30 sm:block"
             >
               查看教學
-            </button>
+            </Link>
             <ArrowUpRight size={20} className="shrink-0 opacity-60 transition group-hover:translate-x-0.5 group-hover:-translate-y-0.5 group-hover:opacity-100" />
           </div>
         </Link>
