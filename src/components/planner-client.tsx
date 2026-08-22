@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { ArrowRight, Check, Copy, MapPin, RefreshCw, Sparkles, Users, WalletCards, X } from "lucide-react";
+import { ArrowRight, ArrowUpRight, Check, Copy, Info, MapPin, RefreshCw, Sparkles, Users, WalletCards, X } from "lucide-react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 const quickStarts = ["吃飯", "玩樂", "逛街", "看電影", "景點", "聊天放鬆", "隨機決定"];
 const vibes = ["輕鬆聊天", "拍照打卡", "刺激好玩", "美食優先", "購物逛街"];
@@ -203,6 +204,8 @@ export function PlannerClient() {
   const [generationRequested, setGenerationRequested] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<Plan | null>(null);
   const [shareOpen, setShareOpen] = useState(false);
+  const [selectedPlace, setSelectedPlace] = useState<Place | null>(null);
+  const [placeModalOpen, setPlaceModalOpen] = useState(false);
   const [routeLoading, setRouteLoading] = useState(false);
   const [routeError, setRouteError] = useState("");
   const [routes, setRoutes] = useState<Record<string, Plan["route"]>>({});
@@ -379,7 +382,16 @@ export function PlannerClient() {
       <main className="mx-auto max-w-6xl px-4 py-8 md:px-8 md:py-10">
         <section className="grid gap-6 lg:grid-cols-[0.85fr_1.15fr]">
           <div className="rounded-3xl border border-brand-500/20 bg-surface p-5 shadow-2xl shadow-black/20 md:p-7">
-            <div className="mb-6 flex items-center justify-between"><div><p className="text-xs font-bold uppercase tracking-widest text-brand-500">01 / SET THE MOOD</p><h2 className="mt-1 text-2xl font-black">先告訴我你們想怎麼玩</h2><p className="mt-2 text-xs text-soft">你的條件只會用來生成這次出遊方案。</p></div><MapPin className="text-brand-400" /></div>
+            <div className="mb-6 flex items-center justify-between">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-widest text-brand-500">01 / SET THE MOOD</p>
+                <h2 className="mt-1 text-2xl font-black">先告訴我你們想怎麼玩</h2>
+                <p className="mt-2 text-xs text-soft">你的條件只會用來生成這次出遊方案。</p>
+              </div>
+              <Link href="/planner/guide" className="flex items-center gap-1.5 text-xs font-bold text-brand-500 hover:text-brand-400 transition-colors">
+                <Info size={14} /> 使用指南
+              </Link>
+            </div>
             <div className="flex flex-wrap gap-2">{quickStarts.map((item) => <button key={item} onClick={() => handleQuickStart(item)} className={`rounded-full border px-3 py-2 text-sm transition ${selectedQuick === item ? "border-brand-500 bg-brand-500 text-white" : "border-[var(--color-border)] text-main hover:border-brand-400"}`}>{item}</button>)}</div>
             <p className="mb-3 mt-7 text-[11px] font-bold uppercase tracking-[0.2em] text-soft">基本條件 / BASIC SIGNALS</p><div className="grid gap-4 sm:grid-cols-2">
               <label className="text-sm text-main">人數<input type="number" min="1" max="30" value={form.people} onChange={(e) => update("people", Number(e.target.value))} className="planner-input" /></label>
@@ -398,18 +410,29 @@ export function PlannerClient() {
           </div>
 
           <div id="plans" className="space-y-4"><div className="flex items-end justify-between"><div><p className="text-xs font-bold uppercase tracking-widest text-brand-400">02 / AI SHORTLIST</p><h2 className="mt-1 text-2xl font-black">為你排出的 3 條路線</h2>{generating && <p className="mt-1 text-xs text-brand-400">正在搜尋附近真實地點並計算路線…</p>}{routeLoading && !generating && <p className="mt-1 text-xs text-brand-400">正在計算路線…</p>}{routeError && <p className="mt-1 text-xs text-coral-500">{routeError}</p>}{generationNote && <p className="mt-1 text-xs font-bold text-brand-500">{generationNote}</p>}</div><button disabled={generating} onClick={() => { setGenerationRequested(true); setGenerationNote(""); setSeed((value) => value + 1); }} className="flex items-center gap-1 text-sm text-soft hover:text-brand-500 disabled:opacity-60"><RefreshCw size={15} /> 再生成</button></div>
-            {plans.map((plan, planIndex) => <article key={plan.title} className="rounded-3xl border border-[var(--color-border)] bg-surface p-5 transition hover:-translate-y-0.5 hover:border-brand-400/60 md:p-6"><div className="flex items-start justify-between gap-4"><div className="flex gap-3"><span className="text-3xl">{plan.emoji}</span><div><div className="flex flex-wrap items-center gap-2"><h3 className="text-xl font-black">{plan.title}</h3>{planIndex === 0 && <span className="rounded-full bg-brand-500 px-2 py-1 text-[10px] font-black uppercase tracking-wider text-white">最佳匹配</span>}</div><p className="mt-1 text-sm leading-6 text-main">{plan.summary}</p></div></div><div className="rounded-2xl bg-brand-500/10 px-3 py-2 text-right"><p className="text-2xl font-black text-brand-500">{plan.match}%</p><p className="text-[10px] uppercase tracking-wider text-soft">match</p></div></div><div className="mt-5 space-y-3 border-l border-brand-400/40 pl-4">{plan.stops.map((stop, index) => <div key={stop.time} className="relative"><span className="absolute -left-[21px] top-1.5 h-2.5 w-2.5 rounded-full bg-brand-400" /><div className="flex justify-between gap-3"><div className="flex items-center gap-2 text-sm font-bold text-brand-500">
-                      <span>{stop.time}｜{places[plan.title]?.[index]?.name || stop.title}</span>
+            {plans.map((plan, planIndex) => <article key={plan.title} className="rounded-3xl border border-[var(--color-border)] bg-surface p-5 transition hover:-translate-y-0.5 hover:border-brand-400/60 md:p-6"><div className="flex items-start justify-between gap-4"><div className="flex gap-3"><span className="text-3xl">{plan.emoji}</span><div><div className="flex flex-wrap items-center gap-2"><h3 className="text-xl font-black">{plan.title}</h3>{planIndex === 0 && <span className="rounded-full bg-brand-500 px-2 py-1 text-[10px] font-black uppercase tracking-wider text-white">最佳匹配</span>}</div><p className="mt-1 text-sm leading-6 text-main">{plan.summary}</p></div></div><div className="rounded-2xl bg-brand-500/10 px-3 py-2 text-right"><p className="text-2xl font-black text-brand-500">{plan.match}%</p><p className="text-[10px] uppercase tracking-wider text-soft">match</p></div></div><div className="mt-5 space-y-3 border-l border-brand-400/40 pl-4">{plan.stops.map((stop, index) => <div key={stop.time} className="relative"><span className="absolute -left-[21px] top-1.5 h-2.5 w-2.5 rounded-full bg-brand-400" /><div className="flex justify-between gap-3">                    <div className="flex items-center gap-2 text-sm font-bold text-brand-500">
+                      <button 
+                        onClick={() => {
+                          if (places[plan.title]?.[index]) {
+                            setSelectedPlace(places[plan.title]![index]!);
+                            setPlaceModalOpen(true);
+                          }
+                        }}
+                        className="hover:underline"
+                      >
+                        {stop.time}｜{places[plan.title]?.[index]?.name || stop.title}
+                      </button>
                       {places[plan.title]?.[index] && (
-                        <a 
-                          href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${places[plan.title]![index]!.name} ${places[plan.title]![index]!.address}`)}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
+                        <button 
+                          onClick={() => {
+                            setSelectedPlace(places[plan.title]![index]!);
+                            setPlaceModalOpen(true);
+                          }}
                           className="flex h-5 w-5 items-center justify-center rounded-md bg-brand-50 text-brand-500 transition hover:bg-brand-500 hover:text-white"
-                          title="在 Google Maps 開啟"
+                          title="查看詳情"
                         >
-                          <MapPin size={10} />
-                        </a>
+                          <Info size={10} />
+                        </button>
                       )}
                     </div><span className="text-xs text-soft">${stop.cost}</span></div><p className="text-xs text-soft">{places[plan.title]?.[index]?.name ? stop.detail : routeLoading || generating ? "正在尋找附近地點…" : stop.detail}</p>{places[plan.title]?.[index]?.address && <p className="mt-1 text-[11px] text-soft">{places[plan.title]?.[index]?.address}</p>}{!places[plan.title]?.[index] && routeError && <p className="mt-1 text-[10px] text-soft">地點搜尋暫時無法使用，以方案預設內容呈現</p>}</div>)}</div><div className="mt-5 flex flex-wrap gap-2">{plan.tags.map((tag) => <span key={tag} className="rounded-full bg-brand-50 px-2.5 py-1 text-xs text-brand-700">#{tag}</span>)}</div><div className="mt-5 grid grid-cols-1 gap-2 rounded-2xl bg-[var(--color-bg-soft)] p-3 text-sm sm:grid-cols-2"><div><p className="text-xs text-soft">預估每人</p><p className="font-bold text-main">${plan.cost} <span className={plan.cost <= form.budget ? "text-brand-500" : "text-rose-300"}>{plan.cost <= form.budget ? "預算內" : "超出"}</span></p></div><div><p className="text-xs text-soft">交通</p><p className="font-bold text-main">{routes[plan.title] ? `${routes[plan.title]!.distanceKm} km｜${routes[plan.title]!.durationMinutes} 分鐘` : plan.travel}</p><p className="mt-1 text-[10px] text-soft">{routes[plan.title] ? "Geoapify 路線估算" : "等待地點定位"}</p></div></div>{plan.warnings.map((warning) => <p key={warning} className="mt-3 text-xs text-coral-500">⚠ {warning}</p>)}<div className="mt-5 flex flex-col gap-2 sm:flex-row"><button onClick={() => openGroup(plan)} className="flex min-h-12 flex-1 items-center justify-center gap-2 rounded-xl bg-brand-400 px-4 py-3 text-sm font-black text-white shadow-lg shadow-black/30 hover:bg-brand-200"><Users size={16} /> 一鍵開團</button><button onClick={() => { setSelectedPlan(plan); setShareOpen(true); }} className="flex min-h-12 items-center justify-center rounded-xl border border-[var(--color-border)] px-4 py-3 text-sm font-bold text-slate-200 hover:border-brand-500"><Copy size={16} /></button></div></article>)}
           </div>
@@ -418,6 +441,56 @@ export function PlannerClient() {
 
       {shareOpen && selectedPlan && <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"><div className="w-full max-w-md rounded-3xl border border-brand-500/20 bg-surface p-6 shadow-2xl"><div className="flex items-center justify-between"><h3 className="text-xl font-black">邀請朋友一起決定</h3><button onClick={() => setShareOpen(false)} className="text-soft"><X size={20} /></button></div><p className="mt-3 text-sm text-main">先把「{selectedPlan.title}」分享給朋友，大家可以一起比較方案。</p><div className="mt-4 grid grid-cols-2 gap-2 rounded-2xl bg-[var(--color-bg-soft)] p-3 text-xs"><div><p className="text-soft">活動日期</p><p className="mt-1 font-bold text-main">{form.date || "尚未設定"}</p></div><div><p className="text-soft">參加人數</p><p className="mt-1 font-bold text-main">{form.people} 人</p></div>{weather && <div className="col-span-2 border-t border-[var(--color-border)] pt-2"><p className="text-soft">天氣偵測</p><p className="mt-1 font-bold text-brand-500">{weather.summary}｜{weather.minTemperature}–{weather.maxTemperature}°C｜降雨 {weather.precipitationProbability}%</p></div>}</div><button onClick={() => sharePlan(selectedPlan)} className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-brand-500 px-4 py-3 font-black text-white"><Copy size={16} /> 複製／分享方案</button><button onClick={() => openGroup(selectedPlan)} className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl border border-brand-400 px-4 py-3 font-bold text-brand-400"><ArrowRight size={16} /> 確認方案並一鍵開團</button></div></div>}
       {shareOpen && !selectedPlan && <div className="fixed bottom-5 right-5 rounded-xl bg-brand-500 px-4 py-3 text-sm font-bold text-white">已複製分享內容</div>}
+
+      {/* Place Detail Modal */}
+      {placeModalOpen && selectedPlace && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 animate-fade-in">
+          <div className="w-full max-w-sm overflow-hidden rounded-[32px] border border-brand-500/20 bg-surface shadow-2xl animate-scale-in">
+            <div className="relative h-32 bg-gradient-to-br from-brand-500 to-brand-600 p-6">
+              <button onClick={() => setPlaceModalOpen(false)} className="absolute right-4 top-4 rounded-full bg-white/20 p-1.5 text-white hover:bg-white/30">
+                <X size={18} />
+              </button>
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/20 text-white">
+                <MapPin size={24} />
+              </div>
+              <h3 className="mt-3 text-xl font-black text-white truncate">{selectedPlace.name}</h3>
+            </div>
+            
+            <div className="p-6">
+              <div className="space-y-4">
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-brand-500">地址 / ADDRESS</p>
+                  <p className="mt-1 text-sm font-medium text-main leading-relaxed">{selectedPlace.address || "暫無地址資訊"}</p>
+                </div>
+                
+                <div className="flex items-center justify-between border-t border-[var(--color-border)] pt-4">
+                  <div>
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-brand-400">距離起點</p>
+                    <p className="mt-0.5 text-sm font-bold text-main">
+                      {selectedPlace.distanceMeters ? `${(selectedPlace.distanceMeters / 1000).toFixed(1)} km` : "計算中"}
+                    </p>
+                  </div>
+                  <a 
+                    href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${selectedPlace.name} ${selectedPlace.address}`)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="btn-brand flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-bold text-white"
+                  >
+                    Google Maps 導航 <ArrowUpRight size={14} />
+                  </a>
+                </div>
+              </div>
+              
+              <button 
+                onClick={() => setPlaceModalOpen(false)}
+                className="mt-6 w-full rounded-xl bg-app-soft py-3 text-sm font-bold text-soft hover:text-main transition-colors"
+              >
+                關閉視窗
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

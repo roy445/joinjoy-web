@@ -128,7 +128,7 @@ export default async function HomePage({
           </div>
           <div className="flex items-center gap-2">
             <Link 
-              href="/legal/guidelines"
+              href="/planner/guide"
               className="hidden rounded-full bg-white/20 px-3 py-1 text-[10px] font-bold text-white hover:bg-white/30 sm:block"
             >
               查看教學
