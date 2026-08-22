@@ -84,7 +84,8 @@ function buildPlans(form: PlannerForm, seed: number): Plan[] {
   const budget = Math.max(100, form.budget);
   const rainSafe = form.indoor;
   const adjusted = Math.round(budget * (0.78 + ((seed % 3) * 0.04)));
-  const plans: Plan[] = [
+  
+  const allPlans: Plan[] = [
     {
       title: "吃飯＋桌遊",
       emoji: "🎲",
@@ -96,7 +97,7 @@ function buildPlans(form: PlannerForm, seed: number): Plan[] {
       ],
       cost: adjusted,
       travel: "總移動約 25 分鐘",
-      match: rainSafe ? 94 : 88,
+      match: 85,
       tags: ["聊天友善", "室內", "低移動"],
       warnings: ["熱門時段建議提前訂位"],
     },
@@ -111,7 +112,7 @@ function buildPlans(form: PlannerForm, seed: number): Plan[] {
       ],
       cost: Math.round(adjusted * 1.05),
       travel: "總移動約 55 分鐘",
-      match: rainSafe ? 82 : 91,
+      match: 80,
       tags: ["拍照", "城市探索", "彈性高"],
       warnings: rainSafe ? ["室外路段遇雨需切換雨備方案"] : ["假日可能需要排隊"],
     },
@@ -126,12 +127,48 @@ function buildPlans(form: PlannerForm, seed: number): Plan[] {
       ],
       cost: Math.round(adjusted * 1.12),
       travel: "總移動約 20 分鐘",
-      match: 86,
+      match: 88,
       tags: ["全室內", "時間穩定", "聊天"],
       warnings: ["熱門電影場次可能較快售罄"],
     },
+    {
+      title: "美食馬拉松",
+      emoji: "🍜",
+      summary: "專為老饕設計，從下午茶一路吃到晚餐，絕對飽足。",
+      stops: [
+        { time: form.start, title: "特色甜點", detail: "排隊名店或隱藏版甜點", cost: Math.round(adjusted * 0.35), category: "catering.cafe" },
+        { time: "16:30", title: "在地小吃", detail: "品嚐當地代表性美食", cost: Math.round(adjusted * 0.2), category: "catering.restaurant" },
+        { time: "18:30", title: "精緻晚餐", detail: "氣氛佳的特色主餐", cost: Math.round(adjusted * 0.65), category: "catering.restaurant" },
+      ],
+      cost: Math.round(adjusted * 1.2),
+      travel: "總移動約 35 分鐘",
+      match: 82,
+      tags: ["吃貨必備", "美食導向", "飽足感"],
+      warnings: ["部分店家可能僅收現金"],
+    }
   ];
-  return plans.map((plan, index) => ({ ...plan, match: Math.max(70, Math.min(98, plan.match + ((seed + index) % 3) - 1)) }));
+
+  // Scoring logic based on form
+  const scored = allPlans.map(plan => {
+    let score = plan.match;
+    // Vibe match
+    if (form.vibe === "輕鬆聊天" && plan.tags.includes("聊天")) score += 10;
+    if (form.vibe === "拍照打卡" && plan.tags.includes("拍照")) score += 10;
+    if (form.vibe === "美食優先" && plan.tags.includes("美食導向")) score += 15;
+    if (form.vibe === "輕鬆聊天" && plan.tags.includes("聊天友善")) score += 8;
+    
+    // Indoor match
+    if (rainSafe && plan.tags.includes("室內")) score += 12;
+    if (rainSafe && plan.tags.includes("全室內")) score += 15;
+    
+    // Budget match
+    if (plan.cost <= form.budget) score += 5;
+    
+    return { ...plan, match: Math.min(99, score) };
+  });
+
+  // Sort by score and take top 3
+  return scored.sort((a, b) => b.match - a.match).slice(0, 3);
 }
 
 export function PlannerClient() {
@@ -361,7 +398,20 @@ export function PlannerClient() {
           </div>
 
           <div id="plans" className="space-y-4"><div className="flex items-end justify-between"><div><p className="text-xs font-bold uppercase tracking-widest text-brand-400">02 / AI SHORTLIST</p><h2 className="mt-1 text-2xl font-black">為你排出的 3 條路線</h2>{generating && <p className="mt-1 text-xs text-brand-400">正在搜尋附近真實地點並計算路線…</p>}{routeLoading && !generating && <p className="mt-1 text-xs text-brand-400">正在計算路線…</p>}{routeError && <p className="mt-1 text-xs text-coral-500">{routeError}</p>}{generationNote && <p className="mt-1 text-xs font-bold text-brand-500">{generationNote}</p>}</div><button disabled={generating} onClick={() => { setGenerationRequested(true); setGenerationNote(""); setSeed((value) => value + 1); }} className="flex items-center gap-1 text-sm text-soft hover:text-brand-500 disabled:opacity-60"><RefreshCw size={15} /> 再生成</button></div>
-            {plans.map((plan, planIndex) => <article key={plan.title} className="rounded-3xl border border-[var(--color-border)] bg-surface p-5 transition hover:-translate-y-0.5 hover:border-brand-400/60 md:p-6"><div className="flex items-start justify-between gap-4"><div className="flex gap-3"><span className="text-3xl">{plan.emoji}</span><div><div className="flex flex-wrap items-center gap-2"><h3 className="text-xl font-black">{plan.title}</h3>{planIndex === 0 && <span className="rounded-full bg-brand-500 px-2 py-1 text-[10px] font-black uppercase tracking-wider text-white">最佳匹配</span>}</div><p className="mt-1 text-sm leading-6 text-main">{plan.summary}</p></div></div><div className="rounded-2xl bg-brand-500/10 px-3 py-2 text-right"><p className="text-2xl font-black text-brand-500">{plan.match}%</p><p className="text-[10px] uppercase tracking-wider text-soft">match</p></div></div><div className="mt-5 space-y-3 border-l border-brand-400/40 pl-4">{plan.stops.map((stop, index) => <div key={stop.time} className="relative"><span className="absolute -left-[21px] top-1.5 h-2.5 w-2.5 rounded-full bg-brand-400" /><div className="flex justify-between gap-3"><p className="text-sm font-bold text-brand-500">{stop.time}｜{places[plan.title]?.[index]?.name || stop.title}</p><span className="text-xs text-soft">${stop.cost}</span></div><p className="text-xs text-soft">{places[plan.title]?.[index]?.name ? stop.detail : routeLoading || generating ? "正在尋找附近地點…" : stop.detail}</p>{places[plan.title]?.[index]?.address && <p className="mt-1 text-[11px] text-soft">{places[plan.title]?.[index]?.address}</p>}{!places[plan.title]?.[index] && routeError && <p className="mt-1 text-[10px] text-soft">地點搜尋暫時無法使用，以方案預設內容呈現</p>}</div>)}</div><div className="mt-5 flex flex-wrap gap-2">{plan.tags.map((tag) => <span key={tag} className="rounded-full bg-brand-50 px-2.5 py-1 text-xs text-brand-700">#{tag}</span>)}</div><div className="mt-5 grid grid-cols-1 gap-2 rounded-2xl bg-[var(--color-bg-soft)] p-3 text-sm sm:grid-cols-2"><div><p className="text-xs text-soft">預估每人</p><p className="font-bold text-main">${plan.cost} <span className={plan.cost <= form.budget ? "text-brand-500" : "text-rose-300"}>{plan.cost <= form.budget ? "預算內" : "超出"}</span></p></div><div><p className="text-xs text-soft">交通</p><p className="font-bold text-main">{routes[plan.title] ? `${routes[plan.title]!.distanceKm} km｜${routes[plan.title]!.durationMinutes} 分鐘` : plan.travel}</p><p className="mt-1 text-[10px] text-soft">{routes[plan.title] ? "Geoapify 路線估算" : "等待地點定位"}</p></div></div>{plan.warnings.map((warning) => <p key={warning} className="mt-3 text-xs text-coral-500">⚠ {warning}</p>)}<div className="mt-5 flex flex-col gap-2 sm:flex-row"><button onClick={() => openGroup(plan)} className="flex min-h-12 flex-1 items-center justify-center gap-2 rounded-xl bg-brand-400 px-4 py-3 text-sm font-black text-white shadow-lg shadow-black/30 hover:bg-brand-200"><Users size={16} /> 一鍵開團</button><button onClick={() => { setSelectedPlan(plan); setShareOpen(true); }} className="flex min-h-12 items-center justify-center rounded-xl border border-[var(--color-border)] px-4 py-3 text-sm font-bold text-slate-200 hover:border-brand-500"><Copy size={16} /></button></div></article>)}
+            {plans.map((plan, planIndex) => <article key={plan.title} className="rounded-3xl border border-[var(--color-border)] bg-surface p-5 transition hover:-translate-y-0.5 hover:border-brand-400/60 md:p-6"><div className="flex items-start justify-between gap-4"><div className="flex gap-3"><span className="text-3xl">{plan.emoji}</span><div><div className="flex flex-wrap items-center gap-2"><h3 className="text-xl font-black">{plan.title}</h3>{planIndex === 0 && <span className="rounded-full bg-brand-500 px-2 py-1 text-[10px] font-black uppercase tracking-wider text-white">最佳匹配</span>}</div><p className="mt-1 text-sm leading-6 text-main">{plan.summary}</p></div></div><div className="rounded-2xl bg-brand-500/10 px-3 py-2 text-right"><p className="text-2xl font-black text-brand-500">{plan.match}%</p><p className="text-[10px] uppercase tracking-wider text-soft">match</p></div></div><div className="mt-5 space-y-3 border-l border-brand-400/40 pl-4">{plan.stops.map((stop, index) => <div key={stop.time} className="relative"><span className="absolute -left-[21px] top-1.5 h-2.5 w-2.5 rounded-full bg-brand-400" /><div className="flex justify-between gap-3"><div className="flex items-center gap-2 text-sm font-bold text-brand-500">
+                      <span>{stop.time}｜{places[plan.title]?.[index]?.name || stop.title}</span>
+                      {places[plan.title]?.[index] && (
+                        <a 
+                          href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${places[plan.title]![index]!.name} ${places[plan.title]![index]!.address}`)}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex h-5 w-5 items-center justify-center rounded-md bg-brand-50 text-brand-500 transition hover:bg-brand-500 hover:text-white"
+                          title="在 Google Maps 開啟"
+                        >
+                          <MapPin size={10} />
+                        </a>
+                      )}
+                    </div><span className="text-xs text-soft">${stop.cost}</span></div><p className="text-xs text-soft">{places[plan.title]?.[index]?.name ? stop.detail : routeLoading || generating ? "正在尋找附近地點…" : stop.detail}</p>{places[plan.title]?.[index]?.address && <p className="mt-1 text-[11px] text-soft">{places[plan.title]?.[index]?.address}</p>}{!places[plan.title]?.[index] && routeError && <p className="mt-1 text-[10px] text-soft">地點搜尋暫時無法使用，以方案預設內容呈現</p>}</div>)}</div><div className="mt-5 flex flex-wrap gap-2">{plan.tags.map((tag) => <span key={tag} className="rounded-full bg-brand-50 px-2.5 py-1 text-xs text-brand-700">#{tag}</span>)}</div><div className="mt-5 grid grid-cols-1 gap-2 rounded-2xl bg-[var(--color-bg-soft)] p-3 text-sm sm:grid-cols-2"><div><p className="text-xs text-soft">預估每人</p><p className="font-bold text-main">${plan.cost} <span className={plan.cost <= form.budget ? "text-brand-500" : "text-rose-300"}>{plan.cost <= form.budget ? "預算內" : "超出"}</span></p></div><div><p className="text-xs text-soft">交通</p><p className="font-bold text-main">{routes[plan.title] ? `${routes[plan.title]!.distanceKm} km｜${routes[plan.title]!.durationMinutes} 分鐘` : plan.travel}</p><p className="mt-1 text-[10px] text-soft">{routes[plan.title] ? "Geoapify 路線估算" : "等待地點定位"}</p></div></div>{plan.warnings.map((warning) => <p key={warning} className="mt-3 text-xs text-coral-500">⚠ {warning}</p>)}<div className="mt-5 flex flex-col gap-2 sm:flex-row"><button onClick={() => openGroup(plan)} className="flex min-h-12 flex-1 items-center justify-center gap-2 rounded-xl bg-brand-400 px-4 py-3 text-sm font-black text-white shadow-lg shadow-black/30 hover:bg-brand-200"><Users size={16} /> 一鍵開團</button><button onClick={() => { setSelectedPlan(plan); setShareOpen(true); }} className="flex min-h-12 items-center justify-center rounded-xl border border-[var(--color-border)] px-4 py-3 text-sm font-bold text-slate-200 hover:border-brand-500"><Copy size={16} /></button></div></article>)}
           </div>
         </section>
       </main>
