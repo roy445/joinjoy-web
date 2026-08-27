@@ -94,14 +94,14 @@ async function getSections() {
     // In a production app, we would use a more sophisticated query builder, 
     // but here we prioritize safety to restore the site.
     Promise.resolve(hotQuery
-      .filter(e => !e.isPrivate && e.status !== "cancelled" && e.status !== "completed")
+      .filter(e => e.status !== "cancelled" && e.status !== "completed")
       .sort((a, b) => b.participantCount - a.participantCount)
       .slice(0, 4)),
     Promise.resolve(latestQuery
-      .filter(e => !e.isPrivate && e.status !== "cancelled" && e.status !== "completed")
+      .filter(e => e.status !== "cancelled" && e.status !== "completed")
       .slice(0, 4)),
     Promise.resolve(upcomingQuery
-      .filter(e => !e.isPrivate && e.status !== "cancelled" && e.status !== "completed")
+      .filter(e => e.status !== "cancelled" && e.status !== "completed")
       .sort((a, b) => a.eventDate.localeCompare(b.eventDate))
       .slice(0, 4)),
     db.select({ count: sql<number>`count(*)` }).from(events).where(ne(events.status, "cancelled")),
@@ -132,7 +132,7 @@ async function runSearch(params: { q?: string; region?: string; date?: string; t
 
   const allResults = await baseSelect();
   const results = allResults
-    .filter(e => !e.isPrivate && e.status !== "cancelled")
+    .filter(e => e.status !== "cancelled")
     .slice(0, 24);
   return results;
 }
