@@ -62,37 +62,16 @@ export class AIProviderManager {
 
     let lastError: any = null;
     for (const provider of providers) {
+      const startTime = Date.now();
       try {
-        const startTime = Date.now();
+        console.log(`[AI] Attempting ${provider.name} (${provider.model})...`);
         const response = await this.callProvider(provider, messages);
-        const latency = Date.now() - startTime;
-
-        // Log usage
-        await db.insert(aiUsageLogs).values({
-          userId,
-          provider: provider.name,
-          model: provider.model,
-          promptTokens: response.usage?.promptTokens,
-          completionTokens: response.usage?.completionTokens,
-          latencyMs: latency,
-          status: "success",
-        });
-
+        this.logUsage(userId, provider.name, provider.model, Date.now() - startTime, "success", response.usage);
         return response;
-      } catch (error) {
+      } catch (error: any) {
         lastError = error;
-        console.error(`AI Provider ${provider.name} failed:`, error);
-        
-        // Log error
-        await db.insert(aiUsageLogs).values({
-          userId,
-          provider: provider.name,
-          model: provider.model,
-          status: "error",
-          error: error instanceof Error ? error.message : String(error),
-        });
-        
-        // Continue to next provider
+        console.error(`[AI] ${provider.name} failed:`, error.message || error);
+        this.logUsage(userId, provider.name, provider.model, Date.now() - startTime, "error", undefined, error.message);
         continue;
       }
     }
@@ -164,20 +143,52 @@ export class AIProviderManager {
   }
 
   /**
-   * Fallback to environment variables
+   * Fallback to environment variables with full support for OpenAI, Gemini, and OpenRouter
    */
   private async chatWithEnv(userId: number, messages: AIMessage[]): Promise<AIResponse> {
-    const openaiKey = process.env.OPENAI_API_KEY;
-    const geminiKey = process.env.GEMINI_API_KEY;
+    const providers = [
+      { name: "openrouter", apiKey: process.env.OPENROUTER_API_KEY, model: process.env.OPENROUTER_MODEL || "google/gemini-flash-1.5" },
+      { name: "openai", apiKey: process.env.OPENAI_API_KEY, model: process.env.OPENAI_MODEL || "gpt-4o-mini" },
+      { name: "gemini", apiKey: process.env.GEMINI_API_KEY, model: process.env.GEMINI_MODEL || "gemini-1.5-flash" }
+    ].filter(p => !!p.apiKey);
 
-    if (openaiKey) {
-      return this.callProvider({ name: "openai", apiKey: openaiKey, model: "gpt-4o-mini" }, messages);
-    }
-    
-    if (geminiKey) {
-      return this.callProvider({ name: "gemini", apiKey: geminiKey, model: "gemini-1.5-flash" }, messages);
+    if (providers.length === 0) {
+      throw new Error("No AI provider configured in environment variables");
     }
 
-    throw new Error("No AI provider configured");
+    let lastError: any = null;
+    for (const provider of providers) {
+      const startTime = Date.now();
+      try {
+        const response = await this.callProvider(provider, messages);
+        
+        // Log usage (fire and forget)
+        this.logUsage(userId, provider.name, provider.model, Date.now() - startTime, "success", response.usage);
+        
+        return response;
+      } catch (error: any) {
+        lastError = error;
+        this.logUsage(userId, provider.name, provider.model, Date.now() - startTime, "error", undefined, error.message);
+        continue;
+      }
+    }
+
+    throw lastError || new Error("All environment AI providers failed");
+  }
+
+  /**
+   * Safe usage logging that doesn't break the main flow
+   */
+  private logUsage(userId: number, provider: string, model: string, latency: number, status: string, usage?: any, error?: string) {
+    db.insert(aiUsageLogs).values({
+      userId,
+      provider,
+      model,
+      promptTokens: usage?.promptTokens,
+      completionTokens: usage?.completionTokens,
+      latencyMs: latency,
+      status,
+      error
+    }).catch(e => console.warn("[AI] Usage log failed (silent):", e.message));
   }
 }

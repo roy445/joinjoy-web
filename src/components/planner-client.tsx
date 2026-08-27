@@ -180,6 +180,7 @@ export function PlannerClient() {
   const [form, setForm] = useState(initialForm);
   const [me, setMe] = useState<any>(null);
   const [meLoading, setMeLoading] = useState(true);
+  const [authChecked, setAuthChecked] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -189,10 +190,14 @@ export function PlannerClient() {
         if (!cancelled) {
           setMe(d?.user ?? null);
           setMeLoading(false);
+          setAuthChecked(true);
         }
       })
       .catch(() => {
-        if (!cancelled) setMeLoading(false);
+        if (!cancelled) {
+          setMeLoading(false);
+          setAuthChecked(true);
+        }
       });
     return () => { cancelled = true; };
   }, []);
@@ -215,15 +220,14 @@ export function PlannerClient() {
 
   useEffect(() => {
     // 檢查是否為第一次進入 Planner，如果是則顯示指南
-    // 直接判斷 localStorage 並立即設定，避免延遲跳出
-    if (typeof window !== "undefined" && me) {
+    if (typeof window !== "undefined" && authChecked && me) {
       const hasSeenGuide = window.localStorage.getItem("joinjoy:planner-guide-seen");
       if (!hasSeenGuide) {
         setGuideModalOpen(true);
         window.localStorage.setItem("joinjoy:planner-guide-seen", "true");
       }
     }
-  }, [me]);
+  }, [authChecked, me]);
   const [routeError, setRouteError] = useState("");
   const [routes, setRoutes] = useState<Record<string, Plan["route"]>>({});
   const [places, setPlaces] = useState<Record<string, Array<Place | null>>>({});
@@ -385,20 +389,38 @@ export function PlannerClient() {
     }
   }
 
+  if (!authChecked) {
+    return (
+      <div className="flex min-h-[60vh] items-center justify-center">
+        <div className="h-12 w-12 animate-spin rounded-full border-4 border-brand-500 border-t-transparent"></div>
+      </div>
+    );
+  }
+
   if (!me) {
     return (
       <div className="mx-auto flex max-w-3xl flex-col items-center gap-4 px-4 py-20 text-center">
-        <div className="rounded-[28px] border border-[var(--color-border)] bg-surface p-10 shadow-xl">
-          <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-brand-500/10">
-            <Users className="text-brand-500" size={32} />
+        <div className="w-full max-w-md overflow-hidden rounded-[2.5rem] bg-white p-10 text-center shadow-2xl border-4 border-brand-100">
+          <div className="mx-auto mb-6 flex h-24 w-24 items-center justify-center rounded-[2rem] bg-brand-50 text-brand-500">
+            <Users size={48} />
           </div>
-          <h1 className="text-2xl font-black text-main">AI 出遊規劃需要登入</h1>
-          <p className="mx-auto mt-3 max-w-md text-sm leading-relaxed text-soft">
+          <h2 className="text-3xl font-black text-brand-900 tracking-tight">AI 出遊規劃需要登入</h2>
+          <p className="mt-4 text-lg font-bold text-brand-700/70 leading-relaxed">
             城市探索 AI 規劃器會使用你的出發地與偏好生成揪團方案，登入後也能直接一鍵開團。
           </p>
-          <div className="mt-7 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
-            <a href="/login" className="btn-brand rounded-full px-8 py-3 text-sm font-bold">前往登入</a>
-            <button onClick={() => router.push("/")} className="rounded-full border border-[var(--color-border)] bg-surface px-8 py-3 text-sm font-bold text-main hover:border-brand-400">回到首頁</button>
+          <div className="mt-10 flex flex-col gap-4">
+            <Link
+              href="/login?redirect=/planner"
+              className="w-full rounded-2xl bg-brand-500 py-5 text-xl font-black text-white shadow-[0_6px_0_#065f46] transition-all hover:translate-y-[-2px] hover:shadow-[0_8px_0_#065f46] active:translate-y-[2px] active:shadow-none"
+            >
+              前往登入
+            </Link>
+            <Link
+              href="/"
+              className="w-full rounded-2xl bg-brand-50 py-5 text-xl font-black text-brand-700 transition-all hover:bg-brand-100"
+            >
+              回到首頁
+            </Link>
           </div>
         </div>
       </div>
@@ -416,12 +438,44 @@ export function PlannerClient() {
           </div>
           <h1 className="max-w-3xl text-4xl font-black leading-tight tracking-tight md:text-6xl">別再問「要去哪？」<br /><span className="text-brand-400">讓城市替你安排。</span></h1>
           <p className="mt-5 max-w-2xl text-base leading-7 text-main md:text-lg">輸入你們的時間、預算與喜好，得到能直接揪團的完整出遊方案。</p>
-          <div className="mt-6 flex max-w-2xl items-start gap-3 rounded-2xl border border-coral-500/20 bg-coral-50/50 p-4 text-xs leading-relaxed text-coral-700">
-            <span className="mt-0.5 shrink-0 rounded-full bg-coral-500 p-1 text-white"><Sparkles size={10} /></span>
-            <p>
-              <strong>AI 生成提醒：</strong>本功能使用人工智慧技術輔助規劃，行程中的店家資訊、天氣預測及路線時間僅供參考。實際狀況（如營業時間、訂位情形、路況）請以現場或官方資訊為準。
-            </p>
-          </div><div className="mt-7 grid max-w-2xl grid-cols-3 gap-2 rounded-2xl border border-brand-500/20 bg-surface/80 p-2 text-[10px] uppercase tracking-wider text-soft sm:text-xs"><div className="rounded-xl bg-brand-400/10 px-3 py-2"><span className="mb-1 block h-1.5 w-1.5 rounded-full bg-brand-500" />條件鎖定</div><div className={`rounded-xl px-3 py-2 ${weatherLoading ? "bg-coral-50 text-coral-500" : weather ? "bg-brand-500/10 text-brand-500" : "bg-[var(--color-bg-soft)]"}`}><span className={`mb-1 block h-1.5 w-1.5 rounded-full ${weatherLoading ? "bg-coral-500" : weather ? "bg-brand-500" : "bg-brand-300"}`} />{weatherLoading ? "天氣掃描中" : weather ? "天氣已同步" : "等待天氣"}</div><div className={`rounded-xl px-3 py-2 ${routeLoading ? "bg-coral-50 text-coral-500" : routes[plans[0]?.title] ? "bg-brand-400/10 text-brand-700" : "bg-[var(--color-bg-soft)]"}`}><span className={`mb-1 block h-1.5 w-1.5 rounded-full ${routeLoading ? "bg-coral-500" : routes[plans[0]?.title] ? "bg-brand-400" : "bg-brand-300"}`} />{routeLoading ? "路線計算中" : routes[plans[0]?.title] ? "路線已就緒" : "等待路線"}</div></div>
+
+          <div className="mt-10 flex flex-col gap-6 lg:flex-row lg:items-stretch">
+            {/* Guide Quick Access - Solid High Contrast */}
+            <div className="flex-1 rounded-[2rem] bg-brand-600 p-8 shadow-xl border-4 border-brand-500 flex flex-col justify-between group transition-all hover:translate-y-[-4px]">
+              <div>
+                <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-white/10 text-white ring-2 ring-white/20">
+                  <Sparkles size={24} className="group-hover:animate-pulse" />
+                </div>
+                <h3 className="text-2xl font-black text-white">使用指南</h3>
+                <p className="mt-2 text-base font-bold text-brand-100 leading-relaxed">
+                  只需三步：輸入偏好、挑選方案、一鍵開團。讓 AI 幫你搞定所有瑣事。
+                </p>
+              </div>
+              <button 
+                onClick={() => setGuideModalOpen(true)}
+                className="mt-6 flex items-center justify-center gap-2 rounded-2xl bg-white py-4 font-black text-brand-700 transition-all hover:bg-brand-50"
+              >
+                查看完整教學 <ArrowRight size={18} />
+              </button>
+            </div>
+
+            {/* AI Notice - Solid High Contrast */}
+            <div className="flex-1 rounded-[2rem] bg-coral-600 p-8 shadow-xl border-4 border-coral-500 flex flex-col justify-between transition-all hover:translate-y-[-4px]">
+              <div>
+                <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-white/10 text-white ring-2 ring-white/20">
+                  <Info size={24} />
+                </div>
+                <h3 className="text-2xl font-black text-white">注意事項</h3>
+                <p className="mt-2 text-base font-bold text-coral-100 leading-relaxed">
+                  AI 生成內容僅供參考。請務必確認店家的營業狀況、預約需求與實際路況。
+                </p>
+              </div>
+              <div className="mt-6 flex items-center gap-2 rounded-xl bg-white/10 px-4 py-3 text-sm font-bold text-white">
+                <Check size={16} /> 建議與官方資訊核對
+              </div>
+            </div>
+          </div>
+<div className="mt-7 grid max-w-2xl grid-cols-3 gap-2 rounded-2xl border border-brand-500/20 bg-surface/80 p-2 text-[10px] uppercase tracking-wider text-soft sm:text-xs"><div className="rounded-xl bg-brand-400/10 px-3 py-2"><span className="mb-1 block h-1.5 w-1.5 rounded-full bg-brand-500" />條件鎖定</div><div className={`rounded-xl px-3 py-2 ${weatherLoading ? "bg-coral-50 text-coral-500" : weather ? "bg-brand-500/10 text-brand-500" : "bg-[var(--color-bg-soft)]"}`}><span className={`mb-1 block h-1.5 w-1.5 rounded-full ${weatherLoading ? "bg-coral-500" : weather ? "bg-brand-500" : "bg-brand-300"}`} />{weatherLoading ? "天氣掃描中" : weather ? "天氣已同步" : "等待天氣"}</div><div className={`rounded-xl px-3 py-2 ${routeLoading ? "bg-coral-50 text-coral-500" : routes[plans[0]?.title] ? "bg-brand-400/10 text-brand-700" : "bg-[var(--color-bg-soft)]"}`}><span className={`mb-1 block h-1.5 w-1.5 rounded-full ${routeLoading ? "bg-coral-500" : routes[plans[0]?.title] ? "bg-brand-400" : "bg-brand-300"}`} />{routeLoading ? "路線計算中" : routes[plans[0]?.title] ? "路線已就緒" : "等待路線"}</div></div>
         </div>
       </div>
 
@@ -625,55 +679,55 @@ export function PlannerClient() {
 
       {/* Guide Modal */}
       {guideModalOpen && (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm animate-in fade-in duration-300">
-          <div className="w-full max-w-lg overflow-hidden rounded-[2rem] border border-coral-500/10 bg-surface shadow-2xl animate-in zoom-in-95 slide-in-from-bottom-10 duration-500">
-            {/* 置頂用法與注意事項樣式 - 參考使用者圖片 */}
-            <div className="relative bg-brand-400 p-8 text-center">
-              <h2 className="text-3xl font-black text-white tracking-tight">歡迎使用 AI 規劃器</h2>
-              <p className="mt-2 text-brand-50 font-medium">開始探索你的專屬揪團方案</p>
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/80 p-4 animate-in fade-in duration-300">
+          <div className="w-full max-w-lg overflow-hidden rounded-[2.5rem] border-4 border-brand-400 bg-white shadow-[0_0_60px_rgba(34,197,94,0.3)] animate-in zoom-in-95 duration-500">
+            {/* 置頂樣式 - 實心品牌綠背景與清晰對比 */}
+            <div className="bg-brand-500 p-10 text-center">
+              <h2 className="text-4xl font-black text-white tracking-tighter">歡迎使用 AI 規劃器</h2>
+              <p className="mt-2 text-xl font-bold text-brand-50">開始探索你的專屬揪團方案</p>
             </div>
             
-            <div className="p-8">
+            <div className="bg-white p-10">
               <div className="space-y-8">
                 {/* 步驟 1 */}
-                <div className="flex items-start gap-5 group">
-                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-app-soft text-brand-500 font-black text-lg shadow-sm group-hover:bg-brand-500 group-hover:text-white transition-all">1</div>
+                <div className="flex items-start gap-5">
+                  <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-brand-500 text-white font-black text-2xl shadow-lg">1</div>
                   <div>
-                    <p className="text-lg font-black text-main">輸入偏好或對話</p>
-                    <p className="mt-1 text-sm font-medium text-soft leading-relaxed">告訴 AI 你們的人數、預算與想玩的風格，或是直接用語音/文字對話描述。</p>
+                    <p className="text-xl font-black text-main">輸入偏好或對話</p>
+                    <p className="mt-1 text-sm font-bold text-soft leading-relaxed">告訴 AI 你們的人數、預算與想玩的風格，或是直接用語音/文字對話描述。</p>
                   </div>
                 </div>
                 
                 {/* 步驟 2 */}
-                <div className="flex items-start gap-5 group">
-                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-app-soft text-brand-500 font-black text-lg shadow-sm group-hover:bg-brand-500 group-hover:text-white transition-all">2</div>
+                <div className="flex items-start gap-5">
+                  <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-brand-500 text-white font-black text-2xl shadow-lg">2</div>
                   <div>
-                    <p className="text-lg font-black text-main">生成與挑選方案</p>
-                    <p className="mt-1 text-sm font-medium text-soft leading-relaxed">AI 會為你找出真實的地點、規劃路線並偵測天氣，你可以挑選最滿意的方案。</p>
+                    <p className="text-xl font-black text-main">生成與挑選方案</p>
+                    <p className="mt-1 text-sm font-bold text-soft leading-relaxed">AI 會為你找出真實的地點、規劃路線並偵測天氣，你可以挑選最滿意的方案。</p>
                   </div>
                 </div>
                 
                 {/* 步驟 3 */}
-                <div className="flex items-start gap-5 group">
-                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-app-soft text-brand-500 font-black text-lg shadow-sm group-hover:bg-brand-500 group-hover:text-white transition-all">3</div>
+                <div className="flex items-start gap-5">
+                  <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-brand-500 text-white font-black text-2xl shadow-lg">3</div>
                   <div>
-                    <p className="text-lg font-black text-main">一鍵開團出發</p>
-                    <p className="mt-1 text-sm font-medium text-soft leading-relaxed">點擊開團，行程與圖片會自動同步到揪團頁面，邀請朋友就能立刻出發！</p>
+                    <p className="text-xl font-black text-main">一鍵開團出發</p>
+                    <p className="mt-1 text-sm font-bold text-soft leading-relaxed">點擊開團，行程與圖片會自動同步到揪團頁面，邀請朋友就能立刻出發！</p>
                   </div>
                 </div>
                 
-                {/* 注意事項區塊 - 完全匹配使用者提供的樣式 */}
-                <div className="rounded-[1.5rem] bg-coral-50 border border-coral-100 p-5 text-sm text-coral-700 shadow-sm animate-pulse-subtle">
-                  <p className="flex items-start gap-2">
-                    <span className="text-lg leading-none">⚠️</span>
-                    <span><strong>注意：</strong>AI 生成內容僅供參考，請務必確認店家的實際營業狀況與預約需求。</span>
+                {/* 注意事項區塊 - 完全匹配使用者提供的實心樣式 */}
+                <div className="rounded-[1.5rem] bg-coral-500 p-6 text-white shadow-xl shadow-coral-500/20 animate-pulse-subtle">
+                  <p className="flex items-start gap-3">
+                    <span className="text-2xl leading-none">⚠️</span>
+                    <span className="text-sm font-black leading-relaxed">注意：AI 生成內容僅供參考，請務必確認店家的實際營業狀況與預約需求。</span>
                   </p>
                 </div>
               </div>
               
               <button 
                 onClick={() => setGuideModalOpen(false)}
-                className="mt-10 w-full rounded-[1.5rem] bg-brand-400 py-5 text-xl font-black text-white shadow-xl shadow-brand-500/20 hover:bg-brand-500 hover:-translate-y-1 transition-all active:scale-95"
+                className="mt-10 w-full rounded-[1.5rem] bg-brand-500 py-6 text-2xl font-black text-white shadow-2xl shadow-brand-500/40 hover:bg-brand-600 hover:-translate-y-1 transition-all active:scale-95"
               >
                 我知道了，開始規劃！
               </button>

@@ -22,15 +22,18 @@ export function UserHonor({
   nameClassName,
 }: UserHonorProps) {
   const isAdmin = role === "admin";
-  const isSpecial = isAdmin || isHost;
 
   return (
     <div className={cn("flex flex-wrap items-center gap-x-2 gap-y-1", className)}>
       {/* Name with Special Effects */}
       <span
         className={cn(
-          "font-bold",
-          isAdmin ? "text-gold-main animate-gold-shine drop-shadow-[0_0_8px_rgba(255,215,0,0.4)]" : isHost ? "text-coral-600 dark:text-coral-400" : "text-main",
+          "font-black tracking-tight",
+          isAdmin 
+            ? "animate-gold-shine text-amber-800 drop-shadow-[0_0_15px_rgba(180,83,9,0.4)] text-lg bg-gradient-to-r from-amber-800 via-yellow-600 to-amber-800 bg-clip-text text-transparent" 
+            : isHost 
+              ? "text-coral-700 drop-shadow-sm" 
+              : "text-main",
           nameClassName
         )}
       >
@@ -39,16 +42,16 @@ export function UserHonor({
 
       {/* Identity Badges */}
       {isAdmin && (
-        <div className="flex items-center gap-1 rounded-full bg-brand-500 px-2 py-0.5 text-[10px] font-bold text-white shadow-sm">
-          <Shield className="h-3 w-3" />
-          管理員
+        <div className="flex items-center gap-1 rounded-full bg-gradient-to-r from-brand-600 to-brand-400 px-2.5 py-1 text-[10px] font-black text-white shadow-lg shadow-brand-500/20 border border-white/20">
+          <Shield className="h-3 w-3 fill-white/20" />
+          👑 管理員
         </div>
       )}
 
       {isHost && !isAdmin && (
-        <div className="flex items-center gap-1 rounded-full bg-coral-500 px-2 py-0.5 text-[10px] font-bold text-white shadow-sm">
-          <Star className="h-3 w-3" />
-          揪主
+        <div className="flex items-center gap-1 rounded-full bg-gradient-to-r from-coral-600 to-coral-400 px-2.5 py-1 text-[10px] font-black text-white shadow-lg shadow-coral-500/20 border border-white/20">
+          <Star className="h-3 w-3 fill-white/20" />
+          ⭐ 揪主
         </div>
       )}
 

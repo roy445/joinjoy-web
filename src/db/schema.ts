@@ -436,28 +436,73 @@ export const userAiDailyUsage = pgTable("user_ai_daily_usage", {
   userDateIdx: index("user_ai_daily_usage_user_date_idx").on(table.userId, table.date),
 }));
 
-// ---------- User Groups (Identities) ----------
+	// ---------- User Groups (Identities) ----------
+	
+	export const userGroups = pgTable("user_groups", {
+	  id: serial("id").primaryKey(),
+	  name: varchar("name", { length: 100 }).notNull().unique(),
+	  icon: varchar("icon", { length: 50 }),
+	  color: varchar("color", { length: 20 }),
+	  effect: varchar("effect", { length: 50 }), // CSS class or effect name
+	  description: text("description"),
+	  dailyAiLimit: integer("daily_ai_limit").notNull().default(50),
+	  jCoinBonus: integer("j_coin_bonus").notNull().default(0), // Percentage bonus
+	  maxBonusCap: integer("max_bonus_cap").notNull().default(100), // Max percentage cap
+	  isActive: boolean("is_active").notNull().default(true),
+	  metadata: jsonb("metadata").$type<any>().default({}),
+	  createdAt: timestamp("created_at").notNull().defaultNow(),
+	});
+	
+	export const userGroupMembers = pgTable("user_group_members", {
+	  id: serial("id").primaryKey(),
+	  userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+	  groupId: integer("group_id").notNull().references(() => userGroups.id, { onDelete: "cascade" }),
+	  assignedBy: integer("assigned_by").references(() => users.id),
+	  assignedReason: text("assigned_reason"),
+	  expiresAt: timestamp("expires_at"),
+	  revokedAt: timestamp("revoked_at"),
+	  revokedBy: integer("revoked_by").references(() => users.id),
+	  revocationReason: text("revocation_reason"),
+	  createdAt: timestamp("created_at").notNull().defaultNow(),
+	});
 
-export const userGroups = pgTable("user_groups", {
-  id: serial("id").primaryKey(),
-  name: varchar("name", { length: 100 }).notNull().unique(),
-  icon: varchar("icon", { length: 50 }),
-  color: varchar("color", { length: 20 }),
-  description: text("description"),
-  dailyAiLimit: integer("daily_ai_limit").notNull().default(50),
-  jCoinBonus: integer("j_coin_bonus").notNull().default(0), // Percentage bonus
-  metadata: jsonb("metadata").$type<any>().default({}),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
-});
+	// ---------- J-Coin Transactions (Audit Log) ----------
 
-export const userGroupMembers = pgTable("user_group_members", {
-  id: serial("id").primaryKey(),
-  userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
-  groupId: integer("group_id").notNull().references(() => userGroups.id, { onDelete: "cascade" }),
-  assignedBy: integer("assigned_by").references(() => users.id),
-  assignedReason: text("assigned_reason"),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
-});
+	export const jCoinTransactions = pgTable("j_coin_transactions", {
+	  id: serial("id").primaryKey(),
+	  userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+	  amount: integer("amount").notNull(),
+	  type: varchar("type", { length: 20 }).notNull(), // earn | spend | admin_adjust
+	  reason: varchar("reason", { length: 255 }).notNull(),
+	  adminId: integer("admin_id").references(() => users.id),
+	  eventId: integer("event_id").references(() => events.id),
+	  metadata: jsonb("metadata").$type<any>().default({}),
+	  createdAt: timestamp("created_at").notNull().defaultNow(),
+	});
+
+	// ---------- Tasks (Daily/Weekly) ----------
+
+	export const tasks = pgTable("tasks", {
+	  id: serial("id").primaryKey(),
+	  title: varchar("title", { length: 150 }).notNull(),
+	  description: text("description"),
+	  type: varchar("type", { length: 20 }).notNull(), // daily | weekly | achievement
+	  rewardJCoins: integer("reward_j_coins").notNull().default(0),
+	  requirementType: varchar("requirement_type", { length: 50 }).notNull(), // host_event | join_event | comment
+	  requirementCount: integer("requirement_count").notNull().default(1),
+	  isActive: boolean("is_active").notNull().default(true),
+	  createdAt: timestamp("created_at").notNull().defaultNow(),
+	});
+
+	export const userTaskProgress = pgTable("user_task_progress", {
+	  id: serial("id").primaryKey(),
+	  userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+	  taskId: integer("task_id").notNull().references(() => tasks.id, { onDelete: "cascade" }),
+	  currentCount: integer("current_count").notNull().default(0),
+	  completed: boolean("completed").notNull().default(false),
+	  completedAt: timestamp("completed_at"),
+	  lastUpdatedAt: timestamp("last_updated_at").notNull().defaultNow(),
+	});
 
 // ---------- Honor Notifications ----------
 

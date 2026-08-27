@@ -18,11 +18,11 @@ export function JCoin({ size = 16, className, animate = true }: JCoinProps) {
       style={{ width: size, height: size }}
     >
       <img
-        src="/images/j-coin.png"
+        src="/images/j-coin-transparent.png"
         alt="J-Coin"
         className={cn(
-          "h-full w-full object-contain",
-          animate && "drop-shadow-[0_0_3px_rgba(255,215,0,0.5)]"
+          "h-full w-full object-contain drop-shadow-[0_2px_8px_rgba(0,0,0,0.15)]",
+          animate && "drop-shadow-[0_0_8px_rgba(255,215,0,0.5)]"
         )}
       />
       {animate && (

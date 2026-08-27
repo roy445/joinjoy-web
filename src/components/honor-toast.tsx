@@ -23,20 +23,22 @@ export function HonorToast({ type, title, content, onClose }: HonorToastProps) {
     setMounted(true);
     setTimeout(() => setVisible(true), 10);
     
-    // Fire confetti
-    const duration = 3 * 1000;
+    // Fire heavy celebratory confetti
+    const duration = 5 * 1000;
     const animationEnd = Date.now() + duration;
-    const defaults = { startVelocity: 30, spread: 360, ticks: 60, zIndex: 9999 };
+    const defaults = { startVelocity: 45, spread: 360, ticks: 100, zIndex: 9999, colors: ['#10b981', '#f97316', '#fbbf24', '#ffffff'] };
 
     const randomInRange = (min: number, max: number) => Math.random() * (max - min) + min;
 
     const interval: any = setInterval(function() {
       const timeLeft = animationEnd - Date.now();
       if (timeLeft <= 0) return clearInterval(interval);
-      const particleCount = 50 * (timeLeft / duration);
+      const particleCount = 70 * (timeLeft / duration);
       confetti({ ...defaults, particleCount, origin: { x: randomInRange(0.1, 0.3), y: Math.random() - 0.2 } });
       confetti({ ...defaults, particleCount, origin: { x: randomInRange(0.7, 0.9), y: Math.random() - 0.2 } });
-    }, 250);
+      // Add stars and circles
+      confetti({ ...defaults, particleCount: 20, shapes: ['star'], origin: { x: Math.random(), y: Math.random() - 0.2 } });
+    }, 200);
 
     const timer = setTimeout(() => {
       handleClose();
@@ -77,37 +79,46 @@ export function HonorToast({ type, title, content, onClose }: HonorToastProps) {
     <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 pointer-events-none">
       <div 
         className={cn(
-          "w-full max-w-md pointer-events-auto overflow-hidden rounded-3xl bg-app shadow-[0_0_50px_rgba(var(--brand-500-rgb),0.2)] border-2 border-brand-500/20 transition-all duration-500 transform",
-          visible ? "scale-100 opacity-100 translate-y-0" : "scale-90 opacity-0 translate-y-10"
+          "w-full max-w-md pointer-events-auto overflow-hidden rounded-[2.5rem] bg-white shadow-[0_20px_60px_-15px_rgba(0,0,0,0.3)] border-[6px] border-brand-500 transition-all duration-700 cubic-bezier(0.34, 1.56, 0.64, 1)",
+          visible ? "scale-100 opacity-100 translate-y-0" : "scale-75 opacity-0 translate-y-20"
         )}
       >
-        <div className="relative p-8 text-center">
+        <div className="relative p-10 text-center">
+          {/* Top Header Section with solid brand color */}
+          <div className="absolute inset-x-0 top-0 h-32 bg-brand-600" />
+          
           <button 
             onClick={handleClose}
-            className="absolute right-4 top-4 rounded-full p-2 text-soft hover:bg-app-soft transition-colors"
+            className="absolute right-4 top-4 z-10 rounded-full bg-white/20 p-2 text-white hover:bg-white/30 transition-colors"
           >
             <X size={20} />
           </button>
 
-          <div className="mb-6 flex justify-center">
+          <div className="relative z-10 mb-8 flex justify-center pt-2">
             <div className="relative">
-              <div className="absolute inset-0 animate-ping rounded-full bg-brand-500/20" />
-              <div className="relative flex h-24 w-24 items-center justify-center rounded-full bg-app-soft shadow-inner">
+              <div className="absolute inset-0 animate-pulse rounded-full bg-white/30 blur-xl" />
+              <div className="relative flex h-32 w-32 items-center justify-center rounded-[2.5rem] bg-white shadow-2xl ring-4 ring-brand-400">
                 {getIcon()}
               </div>
             </div>
           </div>
 
-          <p className="text-xs font-bold uppercase tracking-widest text-brand-600">{getLabel()}</p>
-          <h2 className="mt-2 text-3xl font-black text-main">{title}</h2>
-          {content && <p className="mt-4 text-soft">{content}</p>}
+          <div className="relative z-10 mt-6">
+            <p className="inline-block rounded-lg bg-brand-50 px-3 py-1 text-xs font-black uppercase tracking-[0.2em] text-brand-700">{getLabel()}</p>
+            <h2 className="mt-4 text-4xl font-black text-main tracking-tight">{title}</h2>
+            {content && (
+              <div className="mt-6 rounded-2xl bg-brand-50 p-5 border-2 border-brand-100">
+                <p className="text-lg font-bold text-brand-900 leading-relaxed">{content}</p>
+              </div>
+            )}
+          </div>
 
-          <div className="mt-8 flex flex-col gap-3">
+          <div className="relative z-10 mt-10 flex flex-col gap-3">
             <button 
               onClick={handleClose}
-              className="btn-brand w-full rounded-2xl py-4 text-sm font-bold shadow-lg shadow-brand-500/20"
+              className="w-full rounded-[1.25rem] bg-brand-600 py-5 text-xl font-black text-white shadow-[0_6px_0_#065f46] transition-all hover:translate-y-[-2px] hover:shadow-[0_8px_0_#065f46] active:translate-y-[2px] active:shadow-none"
             >
-              太棒了！
+              太棒了，立即查看！
             </button>
           </div>
         </div>
