@@ -26,6 +26,8 @@ import { NotificationBell } from "@/components/notification-bell";
 import { BetaBadge } from "@/components/beta-badge";
 import { UserHonor } from "@/components/user-honor";
 import { JCoin } from "@/components/j-coin";
+import { JueJueChat } from "@/components/juejue-chat";
+import { HonorNotificationListener } from "@/components/honor-notification-listener";
 import type { ClientUser } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -282,6 +284,12 @@ export function AppShell({ user, children }: { user: ClientUser | null; children
           );
         })}
       </nav>
+      {user && (
+        <>
+          <JueJueChat userId={user.id} />
+          <HonorNotificationListener userId={user.id} />
+        </>
+      )}
     </div>
   );
 }

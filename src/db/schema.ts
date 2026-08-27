@@ -42,6 +42,9 @@ export const users = pgTable("users", {
   activeBadge: varchar("active_badge", { length: 100 }),
   activeAvatarFrame: varchar("active_avatar_frame", { length: 100 }),
   activityStats: jsonb("activity_stats").$type<Record<string, number>>().default({}),
+  // ---------- AI Usage ----------
+  aiUsageLimit: integer("ai_usage_limit"), // Custom limit, null means use group default
+  lastNotificationSeenAt: timestamp("last_notification_seen_at"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
@@ -394,5 +397,77 @@ export const adminLogs = pgTable("admin_logs", {
   targetType: varchar("target_type", { length: 40 }),
   targetId: integer("target_id"),
   detail: text("detail"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// ---------- AI Config & Usage ----------
+
+export const aiProviders = pgTable("ai_providers", {
+  id: serial("id").primaryKey(),
+  name: varchar("name", { length: 50 }).notNull().unique(), // openai | gemini | openrouter
+  apiKey: text("api_key").notNull(),
+  model: varchar("model", { length: 100 }).notNull(),
+  priority: integer("priority").notNull().default(0),
+  isActive: boolean("is_active").notNull().default(true),
+  config: jsonb("config").$type<any>().default({}),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const aiUsageLogs = pgTable("ai_usage_logs", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  provider: varchar("provider", { length: 50 }).notNull(),
+  model: varchar("model", { length: 100 }).notNull(),
+  promptTokens: integer("prompt_tokens"),
+  completionTokens: integer("completion_tokens"),
+  latencyMs: integer("latency_ms"),
+  status: varchar("status", { length: 20 }).notNull(), // success | error
+  error: text("error"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const userAiDailyUsage = pgTable("user_ai_daily_usage", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  date: varchar("date", { length: 10 }).notNull(), // YYYY-MM-DD
+  count: integer("count").notNull().default(0),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (table) => ({
+  userDateIdx: index("user_ai_daily_usage_user_date_idx").on(table.userId, table.date),
+}));
+
+// ---------- User Groups (Identities) ----------
+
+export const userGroups = pgTable("user_groups", {
+  id: serial("id").primaryKey(),
+  name: varchar("name", { length: 100 }).notNull().unique(),
+  icon: varchar("icon", { length: 50 }),
+  color: varchar("color", { length: 20 }),
+  description: text("description"),
+  dailyAiLimit: integer("daily_ai_limit").notNull().default(50),
+  jCoinBonus: integer("j_coin_bonus").notNull().default(0), // Percentage bonus
+  metadata: jsonb("metadata").$type<any>().default({}),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const userGroupMembers = pgTable("user_group_members", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  groupId: integer("group_id").notNull().references(() => userGroups.id, { onDelete: "cascade" }),
+  assignedBy: integer("assigned_by").references(() => users.id),
+  assignedReason: text("assigned_reason"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// ---------- Honor Notifications ----------
+
+export const honorNotifications = pgTable("honor_notifications", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  type: varchar("type", { length: 50 }).notNull(), // group | title | badge
+  targetId: varchar("target_id", { length: 100 }).notNull(),
+  title: varchar("title", { length: 150 }).notNull(),
+  content: text("content"),
+  isSeen: boolean("is_seen").notNull().default(false),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
