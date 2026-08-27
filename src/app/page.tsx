@@ -21,9 +21,34 @@ const participantCountSub = db
   .as("pc");
 
 const baseSelect = async () => {
-  // To ensure the site is restored IMMEDIATELY, we use a more conservative approach.
-  // We first try to fetch without the new columns that are causing crashes.
   try {
+    return await db
+      .select({
+        id: events.id,
+        title: events.title,
+        coverImageUrl: events.coverImageUrl,
+        eventDate: events.eventDate,
+        startTime: events.startTime,
+        meetingLocation: events.meetingLocation,
+        region: events.region,
+        capacity: events.capacity,
+        fee: events.fee,
+        status: events.status,
+        tags: events.tags,
+        isPrivate: events.isPrivate,
+        hostName: users.name,
+        hostAvatar: users.avatarUrl,
+        hostRole: users.role,
+        hostTitle: users.activeTitle,
+        hostBadge: users.activeBadge,
+        participantCount: sql<number>`coalesce(${participantCountSub.count}, 0)`,
+      })
+      .from(events)
+      .leftJoin(users, eq(events.hostId, users.id))
+      .leftJoin(participantCountSub, eq(participantCountSub.eventId, events.id));
+  } catch (error) {
+    console.error("Homepage baseSelect error:", error);
+    // Fallback to basic fields if anything goes wrong
     const results = await db
       .select({
         id: events.id,
@@ -37,7 +62,7 @@ const baseSelect = async () => {
         fee: events.fee,
         status: events.status,
         tags: events.tags,
-        isPrivate: events.isPrivate, // Add back isPrivate for filtering
+        isPrivate: events.isPrivate,
         hostName: users.name,
         hostAvatar: users.avatarUrl,
         hostRole: users.role,
@@ -52,9 +77,6 @@ const baseSelect = async () => {
       hostTitle: null,
       hostBadge: null,
     }));
-  } catch (error) {
-    console.error("Homepage baseSelect error:", error);
-    return [];
   }
 };
 

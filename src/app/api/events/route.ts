@@ -82,6 +82,8 @@ export async function GET(req: NextRequest) {
         hostName: users.name,
         hostAvatar: users.avatarUrl,
         hostRole: users.role,
+        hostTitle: users.activeTitle,
+        hostBadge: users.activeBadge,
         participantCount: sql<number>`coalesce(${participantCountSub.count}, 0)`,
         createdAt: events.createdAt,
       })
@@ -93,12 +95,7 @@ export async function GET(req: NextRequest) {
       .limit(limit)
       .offset((page - 1) * limit);
     
-    const rawRows = await baseQuery;
-    rows = rawRows.map(r => ({
-      ...r,
-      hostTitle: null,
-      hostBadge: null,
-    }));
+    rows = await baseQuery;
   } catch (error) {
     console.error("Event list fetch error, falling back to basic fields:", error);
     // Fallback to basic fields that are guaranteed to exist
