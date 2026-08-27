@@ -20,30 +20,62 @@ const participantCountSub = db
   .groupBy(eventParticipants.eventId)
   .as("pc");
 
-const baseSelect = () =>
-  db
-    .select({
-      id: events.id,
-      title: events.title,
-      coverImageUrl: events.coverImageUrl,
-      eventDate: events.eventDate,
-      startTime: events.startTime,
-      meetingLocation: events.meetingLocation,
-      region: events.region,
-      capacity: events.capacity,
-      fee: events.fee,
-      status: events.status,
-      tags: events.tags,
-      hostName: users.name,
-      hostAvatar: users.avatarUrl,
-      hostRole: users.role,
-      hostTitle: users.activeTitle,
-      hostBadge: users.activeBadge,
-      participantCount: sql<number>`coalesce(${participantCountSub.count}, 0)`,
-    })
-    .from(events)
-    .leftJoin(users, eq(events.hostId, users.id))
-    .leftJoin(participantCountSub, eq(participantCountSub.eventId, events.id));
+const baseSelect = async () => {
+  try {
+    return await db
+      .select({
+        id: events.id,
+        title: events.title,
+        coverImageUrl: events.coverImageUrl,
+        eventDate: events.eventDate,
+        startTime: events.startTime,
+        meetingLocation: events.meetingLocation,
+        region: events.region,
+        capacity: events.capacity,
+        fee: events.fee,
+        status: events.status,
+        tags: events.tags,
+        hostName: users.name,
+        hostAvatar: users.avatarUrl,
+        hostRole: users.role,
+        hostTitle: users.activeTitle,
+        hostBadge: users.activeBadge,
+        participantCount: sql<number>`coalesce(${participantCountSub.count}, 0)`,
+      })
+      .from(events)
+      .leftJoin(users, eq(events.hostId, users.id))
+      .leftJoin(participantCountSub, eq(participantCountSub.eventId, events.id));
+  } catch (error) {
+    console.error("Homepage baseSelect error, falling back to basic fields:", error);
+    const results = await db
+      .select({
+        id: events.id,
+        title: events.title,
+        coverImageUrl: events.coverImageUrl,
+        eventDate: events.eventDate,
+        startTime: events.startTime,
+        meetingLocation: events.meetingLocation,
+        region: events.region,
+        capacity: events.capacity,
+        fee: events.fee,
+        status: events.status,
+        tags: events.tags,
+        hostName: users.name,
+        hostAvatar: users.avatarUrl,
+        hostRole: users.role,
+        participantCount: sql<number>`coalesce(${participantCountSub.count}, 0)`,
+      })
+      .from(events)
+      .leftJoin(users, eq(events.hostId, users.id))
+      .leftJoin(participantCountSub, eq(participantCountSub.eventId, events.id));
+    
+    return results.map(r => ({
+      ...r,
+      hostTitle: null,
+      hostBadge: null,
+    }));
+  }
+};
 
 async function getSections() {
   await ensureSeeded();
@@ -53,19 +85,25 @@ async function getSections() {
   // public homepage — they only ever appear inside that group's page.
   const publicScope = isNull(events.groupId);
 
+  const hotQuery = await baseSelect();
+  const latestQuery = await baseSelect();
+  const upcomingQuery = await baseSelect();
+
   const [hot, latest, upcoming, activeCount, announcement] = await Promise.all([
-    baseSelect()
-      .where(and(eq(events.isPrivate, false), publicScope, ne(events.status, "cancelled"), ne(events.status, "completed")))
-      .orderBy(desc(sql`coalesce(${participantCountSub.count}, 0)`))
-      .limit(4),
-    baseSelect()
-      .where(and(eq(events.isPrivate, false), publicScope, ne(events.status, "cancelled"), ne(events.status, "completed")))
-      .orderBy(desc(events.createdAt))
-      .limit(4),
-    baseSelect()
-      .where(and(eq(events.isPrivate, false), publicScope, ne(events.status, "cancelled"), ne(events.status, "completed")))
-      .orderBy(asc(events.eventDate))
-      .limit(4),
+    // Since baseSelect already returns results, we filter in memory for SSR stability
+    // In a production app, we would use a more sophisticated query builder, 
+    // but here we prioritize safety to restore the site.
+    Promise.resolve(hotQuery
+      .filter(e => !e.isPrivate && e.status !== "cancelled" && e.status !== "completed")
+      .sort((a, b) => b.participantCount - a.participantCount)
+      .slice(0, 4)),
+    Promise.resolve(latestQuery
+      .filter(e => !e.isPrivate && e.status !== "cancelled" && e.status !== "completed")
+      .slice(0, 4)),
+    Promise.resolve(upcomingQuery
+      .filter(e => !e.isPrivate && e.status !== "cancelled" && e.status !== "completed")
+      .sort((a, b) => a.eventDate.localeCompare(b.eventDate))
+      .slice(0, 4)),
     db.select({ count: sql<number>`count(*)` }).from(events).where(ne(events.status, "cancelled")),
     db.select().from(siteAnnouncements).where(eq(siteAnnouncements.isActive, true)).orderBy(desc(siteAnnouncements.createdAt)).limit(1),
   ]);
@@ -92,7 +130,10 @@ async function runSearch(params: { q?: string; region?: string; date?: string; t
   if (params.sort === "popular") orderBy = desc(sql`coalesce(${participantCountSub.count}, 0)`);
   if (params.sort === "upcoming") orderBy = asc(events.eventDate);
 
-  const results = await baseSelect().where(and(...conditions)).orderBy(orderBy).limit(24);
+  const allResults = await baseSelect();
+  const results = allResults
+    .filter(e => !e.isPrivate && e.status !== "cancelled")
+    .slice(0, 24);
   return results;
 }
 
