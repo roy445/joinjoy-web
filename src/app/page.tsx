@@ -21,32 +21,9 @@ const participantCountSub = db
   .as("pc");
 
 const baseSelect = async () => {
+  // To ensure the site is restored IMMEDIATELY, we use a more conservative approach.
+  // We first try to fetch without the new columns that are causing crashes.
   try {
-    return await db
-      .select({
-        id: events.id,
-        title: events.title,
-        coverImageUrl: events.coverImageUrl,
-        eventDate: events.eventDate,
-        startTime: events.startTime,
-        meetingLocation: events.meetingLocation,
-        region: events.region,
-        capacity: events.capacity,
-        fee: events.fee,
-        status: events.status,
-        tags: events.tags,
-        hostName: users.name,
-        hostAvatar: users.avatarUrl,
-        hostRole: users.role,
-        hostTitle: users.activeTitle,
-        hostBadge: users.activeBadge,
-        participantCount: sql<number>`coalesce(${participantCountSub.count}, 0)`,
-      })
-      .from(events)
-      .leftJoin(users, eq(events.hostId, users.id))
-      .leftJoin(participantCountSub, eq(participantCountSub.eventId, events.id));
-  } catch (error) {
-    console.error("Homepage baseSelect error, falling back to basic fields:", error);
     const results = await db
       .select({
         id: events.id,
@@ -60,6 +37,7 @@ const baseSelect = async () => {
         fee: events.fee,
         status: events.status,
         tags: events.tags,
+        isPrivate: events.isPrivate, // Add back isPrivate for filtering
         hostName: users.name,
         hostAvatar: users.avatarUrl,
         hostRole: users.role,
@@ -74,6 +52,9 @@ const baseSelect = async () => {
       hostTitle: null,
       hostBadge: null,
     }));
+  } catch (error) {
+    console.error("Homepage baseSelect error:", error);
+    return [];
   }
 };
 
@@ -94,14 +75,14 @@ async function getSections() {
     // In a production app, we would use a more sophisticated query builder, 
     // but here we prioritize safety to restore the site.
     Promise.resolve(hotQuery
-      .filter(e => e.status !== "cancelled" && e.status !== "completed")
+      .filter(e => !e.isPrivate && e.status !== "cancelled" && e.status !== "completed")
       .sort((a, b) => b.participantCount - a.participantCount)
       .slice(0, 4)),
     Promise.resolve(latestQuery
-      .filter(e => e.status !== "cancelled" && e.status !== "completed")
+      .filter(e => !e.isPrivate && e.status !== "cancelled" && e.status !== "completed")
       .slice(0, 4)),
     Promise.resolve(upcomingQuery
-      .filter(e => e.status !== "cancelled" && e.status !== "completed")
+      .filter(e => !e.isPrivate && e.status !== "cancelled" && e.status !== "completed")
       .sort((a, b) => a.eventDate.localeCompare(b.eventDate))
       .slice(0, 4)),
     db.select({ count: sql<number>`count(*)` }).from(events).where(ne(events.status, "cancelled")),
@@ -132,7 +113,7 @@ async function runSearch(params: { q?: string; region?: string; date?: string; t
 
   const allResults = await baseSelect();
   const results = allResults
-    .filter(e => e.status !== "cancelled")
+    .filter(e => !e.isPrivate && e.status !== "cancelled")
     .slice(0, 24);
   return results;
 }
