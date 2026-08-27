@@ -22,6 +22,7 @@ import {
 import { Logo } from "@/components/logo";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { NotificationBell } from "@/components/notification-bell";
+import { BetaBadge } from "@/components/beta-badge";
 import type { ClientUser } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -86,7 +87,9 @@ export function AppShell({ user, children }: { user: ClientUser | null; children
                     <span className="flex flex-1 items-center justify-between">
                       {item.label}
                       {item.href === "/planner" && (
-                        <span className="rounded bg-brand-500 px-1 py-0.5 text-[8px] font-black leading-none text-white">BETA</span>
+                        <div className="scale-75 origin-right">
+                          <BetaBadge />
+                        </div>
                       )}
                     </span>
                   </Link>
@@ -118,7 +121,9 @@ export function AppShell({ user, children }: { user: ClientUser | null; children
                     <span className="flex flex-1 items-center justify-between">
                       {item.label}
                       {item.href === "/planner" && (
-                        <span className="rounded bg-brand-500 px-1 py-0.5 text-[8px] font-black leading-none text-white">BETA</span>
+                        <div className="scale-75 origin-right">
+                          <BetaBadge />
+                        </div>
                       )}
                     </span>
                   </Link>
@@ -253,7 +258,9 @@ export function AppShell({ user, children }: { user: ClientUser | null; children
               <Icon size={20} />
               {item.label}
               {item.href === "/planner" && (
-                <span className="absolute right-0.5 top-0.5 rounded bg-brand-500 px-0.5 py-0.25 text-[7px] font-black leading-none text-white scale-90">BETA</span>
+                <div className="absolute -right-1 -top-1 scale-[0.6] origin-top-right">
+                  <BetaBadge />
+                </div>
               )}
             </Link>
           );
