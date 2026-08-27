@@ -54,6 +54,7 @@ type Place = {
   lon: number;
   placeId: string | null;
   distanceMeters: number | null;
+  imageUrl?: string;
 };
 
 type Plan = {
@@ -323,9 +324,13 @@ export function PlannerClient() {
 
   function openGroup(plan: Plan) {
     const route = routes[plan.title];
+    const planPlaces = places[plan.title] || [];
+    // 提取第一張有圖片的地點照片作為活動封面
+    const coverImage = planPlaces.find(p => p?.imageUrl)?.imageUrl;
+
     window.localStorage.setItem("joinjoy:planner-preset", JSON.stringify({
       title: `${plan.emoji} ${plan.title}｜朋友出遊`,
-      description: `${plan.summary}${weather ? `\n\n天氣：${weather.summary}，${weather.minTemperature}–${weather.maxTemperature}°C，降雨機率 ${weather.precipitationProbability}%。${weather.recommendation}` : ""}\n\n行程安排：\n${plan.stops.map((stop, index) => `${stop.time}｜${stop.place?.name || places[plan.title]?.[index]?.name || stop.title}：${stop.place?.address || places[plan.title]?.[index]?.address || stop.detail}`).join("\n")}\n\n預估每人 $${plan.cost}，${route ? `Geoapify 路線約 ${route.distanceKm} 公里、${route.durationMinutes} 分鐘` : plan.travel}。\n\n由 AI 出遊規劃器產生，可依實際情況調整。`,
+      description: `${plan.summary}${weather ? `\n\n天氣：${weather.summary}，${weather.minTemperature}–${weather.maxTemperature}°C，降雨機率 ${weather.precipitationProbability}%。${weather.recommendation}` : ""}\n\n行程安排：\n${plan.stops.map((stop, index) => `${stop.time}｜${planPlaces[index]?.name || stop.title}：${planPlaces[index]?.address || stop.detail}`).join("\n")}\n\n預估每人 $${plan.cost}，${route ? `Geoapify 路線約 ${route.distanceKm} 公里、${route.durationMinutes} 分鐘` : plan.travel}。\n\n由 AI 出遊規劃器產生，可依實際情況調整。`,
       eventDate: form.date,
       startTime: form.start,
       endTime: form.end,
@@ -333,8 +338,9 @@ export function PlannerClient() {
       fee: plan.cost,
       region: form.origin,
       tags: [...plan.tags, "AI 出遊規劃"],
-      aiItinerary: { ...plan, stops: plan.stops.map((s, i) => ({ ...s, place: places[plan.title]?.[i] })) },
+      aiItinerary: { ...plan, stops: plan.stops.map((s, i) => ({ ...s, place: planPlaces[i] })) },
       isAiPlanned: true,
+      imageUrl: coverImage,
     }));
     router.push("/events/create?planner=1");
   }
@@ -492,15 +498,32 @@ export function PlannerClient() {
       {placeModalOpen && selectedPlace && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 animate-fade-in">
           <div className="w-full max-w-sm overflow-hidden rounded-[32px] border border-brand-500/20 bg-surface shadow-2xl animate-scale-in">
-            <div className="relative h-32 bg-gradient-to-br from-brand-500 to-brand-600 p-6">
-              <button onClick={() => setPlaceModalOpen(false)} className="absolute right-4 top-4 rounded-full bg-white/20 p-1.5 text-white hover:bg-white/30">
-                <X size={18} />
-              </button>
-              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/20 text-white">
-                <MapPin size={24} />
+            {selectedPlace.imageUrl ? (
+              <div className="relative h-48 w-full">
+                <img 
+                  src={selectedPlace.imageUrl} 
+                  alt={selectedPlace.name} 
+                  className="h-full w-full object-cover"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+                <button onClick={() => setPlaceModalOpen(false)} className="absolute right-4 top-4 rounded-full bg-black/20 p-1.5 text-white hover:bg-black/40 backdrop-blur-sm">
+                  <X size={18} />
+                </button>
+                <div className="absolute bottom-4 left-6 right-6">
+                  <h3 className="text-xl font-black text-white truncate">{selectedPlace.name}</h3>
+                </div>
               </div>
-              <h3 className="mt-3 text-xl font-black text-white truncate">{selectedPlace.name}</h3>
-            </div>
+            ) : (
+              <div className="relative h-32 bg-gradient-to-br from-brand-500 to-brand-600 p-6">
+                <button onClick={() => setPlaceModalOpen(false)} className="absolute right-4 top-4 rounded-full bg-white/20 p-1.5 text-white hover:bg-white/30">
+                  <X size={18} />
+                </button>
+                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/20 text-white">
+                  <MapPin size={24} />
+                </div>
+                <h3 className="mt-3 text-xl font-black text-white truncate">{selectedPlace.name}</h3>
+              </div>
+            )}
             
             <div className="p-6">
               <div className="space-y-4">

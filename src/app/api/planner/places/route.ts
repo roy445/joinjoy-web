@@ -13,6 +13,7 @@ type Place = {
   placeId: string | null;
   distanceMeters: number | null;
   source: string;
+  imageUrl?: string;
 };
 
 type FoursquareLocation = {
@@ -163,6 +164,32 @@ async function searchPlace(
   const latitude = typeof result.latitude === "number" ? result.latitude : result.location?.latitude;
   const longitude = typeof result.longitude === "number" ? result.longitude : result.location?.longitude;
   if (typeof latitude !== "number" || typeof longitude !== "number") return null;
+
+  // Fetch photo if placeId exists
+  let imageUrl: string | undefined = undefined;
+  if (result.fsq_place_id) {
+    try {
+      const photoUrl = new URL(`https://places-api.foursquare.com/places/${result.fsq_place_id}/photos`);
+      photoUrl.searchParams.set("limit", "1");
+      const photoRes = await fetch(photoUrl, {
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          "X-Places-Api-Version": "2025-06-17",
+        },
+        next: { revalidate: 3600 },
+      });
+      if (photoRes.ok) {
+        const photos = await photoRes.json();
+        if (Array.isArray(photos) && photos.length > 0) {
+          const photo = photos[0];
+          imageUrl = `${photo.prefix}original${photo.suffix}`;
+        }
+      }
+    } catch (e) {
+      console.warn("[planner/places] photo fetch error", e);
+    }
+  }
+
   return {
     name: result.name || stop.query || "附近地點",
     address: buildAddress(result.location),
@@ -171,6 +198,7 @@ async function searchPlace(
     placeId: result.fsq_place_id || null,
     distanceMeters: null,
     source: "foursquare",
+    imageUrl,
   };
 }
 
