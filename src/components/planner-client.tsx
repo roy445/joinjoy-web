@@ -496,63 +496,73 @@ export function PlannerClient() {
 
       {/* Place Detail Modal */}
       {placeModalOpen && selectedPlace && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 animate-fade-in">
-          <div className="w-full max-w-sm overflow-hidden rounded-[32px] border border-brand-500/20 bg-surface shadow-2xl animate-scale-in">
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm animate-in fade-in duration-300">
+          <div className="w-full max-w-sm overflow-hidden rounded-[2.5rem] border border-brand-500/10 bg-surface shadow-2xl animate-in zoom-in-95 duration-300">
             {selectedPlace.imageUrl ? (
-              <div className="relative h-48 w-full">
+              <div className="relative h-56 w-full">
                 <img 
                   src={selectedPlace.imageUrl} 
                   alt={selectedPlace.name} 
                   className="h-full w-full object-cover"
                 />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
-                <button onClick={() => setPlaceModalOpen(false)} className="absolute right-4 top-4 rounded-full bg-black/20 p-1.5 text-white hover:bg-black/40 backdrop-blur-sm">
-                  <X size={18} />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent" />
+                <button 
+                  onClick={() => setPlaceModalOpen(false)} 
+                  className="absolute right-5 top-5 rounded-full bg-black/30 p-2 text-white hover:bg-black/50 backdrop-blur-md transition-all"
+                >
+                  <X size={20} />
                 </button>
-                <div className="absolute bottom-4 left-6 right-6">
-                  <h3 className="text-xl font-black text-white truncate">{selectedPlace.name}</h3>
+                <div className="absolute bottom-6 left-8 right-8">
+                  <div className="flex items-center gap-2 text-brand-400">
+                    <MapPin size={14} />
+                    <span className="text-[10px] font-black uppercase tracking-[0.2em]">Location Detail</span>
+                  </div>
+                  <h3 className="mt-1 text-2xl font-black text-white leading-tight">{selectedPlace.name}</h3>
                 </div>
               </div>
             ) : (
-              <div className="relative h-32 bg-gradient-to-br from-brand-500 to-brand-600 p-6">
-                <button onClick={() => setPlaceModalOpen(false)} className="absolute right-4 top-4 rounded-full bg-white/20 p-1.5 text-white hover:bg-white/30">
-                  <X size={18} />
+              <div className="relative bg-brand-500 p-10 text-center">
+                <button 
+                  onClick={() => setPlaceModalOpen(false)} 
+                  className="absolute right-5 top-5 rounded-full bg-white/20 p-2 text-white hover:bg-white/30 transition-all"
+                >
+                  <X size={20} />
                 </button>
-                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/20 text-white">
-                  <MapPin size={24} />
+                <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-3xl bg-white/20 text-white shadow-inner">
+                  <MapPin size={36} />
                 </div>
-                <h3 className="mt-3 text-xl font-black text-white truncate">{selectedPlace.name}</h3>
+                <h3 className="mt-4 text-2xl font-black text-white leading-tight">{selectedPlace.name}</h3>
               </div>
             )}
             
-            <div className="p-6">
-              <div className="space-y-4">
+            <div className="p-8">
+              <div className="space-y-6">
                 <div>
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-brand-500">地址 / ADDRESS</p>
-                  <p className="mt-1 text-sm font-medium text-main leading-relaxed">{selectedPlace.address || "暫無地址資訊"}</p>
+                  <p className="text-[10px] font-black uppercase tracking-[0.2em] text-brand-500/60">地址資訊 / ADDRESS</p>
+                  <p className="mt-2 text-sm font-bold text-main leading-relaxed">{selectedPlace.address || "暫無詳細地址資訊"}</p>
                 </div>
                 
-                <div className="flex items-center justify-between border-t border-[var(--color-border)] pt-4">
+                <div className="flex items-center justify-between border-t border-[var(--color-border)] pt-6">
                   <div>
-                    <p className="text-[10px] font-bold uppercase tracking-widest text-brand-400">距離起點</p>
-                    <p className="mt-0.5 text-sm font-bold text-main">
-                      {selectedPlace.distanceMeters ? `${(selectedPlace.distanceMeters / 1000).toFixed(1)} km` : "計算中"}
+                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-soft">距離起點 / DISTANCE</p>
+                    <p className="mt-1 text-lg font-black text-main">
+                      {selectedPlace.distanceMeters ? `${(selectedPlace.distanceMeters / 1000).toFixed(1)} km` : "計算中…"}
                     </p>
                   </div>
                   <a 
                     href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${selectedPlace.name} ${selectedPlace.address}`)}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="btn-brand flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-bold text-white"
+                    className="btn-brand flex items-center gap-2 rounded-2xl px-5 py-3 text-xs font-black text-white shadow-lg shadow-brand-500/20 hover:-translate-y-0.5 transition-all"
                   >
-                    Google Maps 導航 <ArrowUpRight size={14} />
+                    Google Maps <ArrowUpRight size={14} />
                   </a>
                 </div>
               </div>
               
               <button 
                 onClick={() => setPlaceModalOpen(false)}
-                className="mt-6 w-full rounded-xl bg-app-soft py-3 text-sm font-bold text-soft hover:text-main transition-colors"
+                className="mt-8 w-full rounded-2xl bg-app-soft py-4 text-sm font-black text-soft hover:bg-brand-500/10 hover:text-brand-600 transition-all"
               >
                 關閉視窗
               </button>
