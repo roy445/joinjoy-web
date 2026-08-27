@@ -9,27 +9,57 @@ import { getCurrentUser } from "@/lib/auth";
 export async function GET() {
   const currentUser = await getCurrentUser();
 
-  const upcoming = await db
-	    .select({
-	      id: events.id,
-	      title: events.title,
-	      coverImageUrl: events.coverImageUrl,
-	      eventDate: events.eventDate,
-	      startTime: events.startTime,
-	      region: events.region,
-	      tags: events.tags,
-	      hostName: users.name,
-	      hostRole: users.role,
-	      hostTitle: users.activeTitle,
-	      hostBadge: users.activeBadge,
-	      capacity: events.capacity,
-	      fee: events.fee,
-	      meetingLocation: events.meetingLocation,
-	    })
-    .from(events)
-    .leftJoin(users, eq(events.hostId, users.id))
-    .where(and(eq(events.isPrivate, false), ne(events.status, "cancelled"), ne(events.status, "completed")))
-    .limit(60);
+  let upcoming: any[] = [];
+  try {
+    upcoming = await db
+      .select({
+        id: events.id,
+        title: events.title,
+        coverImageUrl: events.coverImageUrl,
+        eventDate: events.eventDate,
+        startTime: events.startTime,
+        region: events.region,
+        tags: events.tags,
+        hostName: users.name,
+        hostRole: users.role,
+        hostTitle: users.activeTitle,
+        hostBadge: users.activeBadge,
+        capacity: events.capacity,
+        fee: events.fee,
+        meetingLocation: events.meetingLocation,
+      })
+      .from(events)
+      .leftJoin(users, eq(events.hostId, users.id))
+      .where(and(eq(events.isPrivate, false), ne(events.status, "cancelled"), ne(events.status, "completed")))
+      .limit(60);
+  } catch (error) {
+    console.error("Recommendations fetch error, falling back to basic fields:", error);
+    const fallback = await db
+      .select({
+        id: events.id,
+        title: events.title,
+        coverImageUrl: events.coverImageUrl,
+        eventDate: events.eventDate,
+        startTime: events.startTime,
+        region: events.region,
+        tags: events.tags,
+        hostName: users.name,
+        hostRole: users.role,
+        capacity: events.capacity,
+        fee: events.fee,
+        meetingLocation: events.meetingLocation,
+      })
+      .from(events)
+      .leftJoin(users, eq(events.hostId, users.id))
+      .where(and(eq(events.isPrivate, false), ne(events.status, "cancelled"), ne(events.status, "completed")))
+      .limit(60);
+    
+    upcoming = fallback.map(e => ({
+      ...e,
+      hostTitle: null,
+      hostBadge: null,
+    }));
+  }
 
   if (!currentUser) {
     return NextResponse.json({ events: upcoming.slice(0, 8), reason: "熱門活動推薦" });

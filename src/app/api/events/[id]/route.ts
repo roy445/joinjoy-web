@@ -9,25 +9,54 @@ import { sanitize, isSameOrigin } from "@/lib/security";
 import { autoUpdateEventStatuses } from "@/lib/event-status";
 
 async function loadEvent(id: number) {
-  const [event] = await db
-	    .select({
-	      event: events,
-	      hostName: users.name,
-	      hostAvatar: users.avatarUrl,
-	      hostBio: users.bio,
-	      hostCredit: users.creditScore,
-	      hostRole: users.role,
-	      hostTitle: users.activeTitle,
-	      hostBadge: users.activeBadge,
-	      hostJCoins: users.jCoins,
-	      groupName: groups.name,
-	    })
-    .from(events)
-    .leftJoin(users, eq(events.hostId, users.id))
-    .leftJoin(groups, eq(events.groupId, groups.id))
-    .where(eq(events.id, id))
-    .limit(1);
-  return event;
+  try {
+    const [event] = await db
+      .select({
+        event: events,
+        hostName: users.name,
+        hostAvatar: users.avatarUrl,
+        hostBio: users.bio,
+        hostCredit: users.creditScore,
+        hostRole: users.role,
+        hostTitle: users.activeTitle,
+        hostBadge: users.activeBadge,
+        hostJCoins: users.jCoins,
+        groupName: groups.name,
+      })
+      .from(events)
+      .leftJoin(users, eq(events.hostId, users.id))
+      .leftJoin(groups, eq(events.groupId, groups.id))
+      .where(eq(events.id, id))
+      .limit(1);
+    return event;
+  } catch (error) {
+    console.error("loadEvent error, falling back to basic fields:", error);
+    const [event] = await db
+      .select({
+        event: events,
+        hostName: users.name,
+        hostAvatar: users.avatarUrl,
+        hostBio: users.bio,
+        hostCredit: users.creditScore,
+        hostRole: users.role,
+        groupName: groups.name,
+      })
+      .from(events)
+      .leftJoin(users, eq(events.hostId, users.id))
+      .leftJoin(groups, eq(events.groupId, groups.id))
+      .where(eq(events.id, id))
+      .limit(1);
+    
+    if (event) {
+      return {
+        ...event,
+        hostTitle: null,
+        hostBadge: null,
+        hostJCoins: 0,
+      } as any;
+    }
+    return null;
+  }
 }
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -62,25 +91,53 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     }
   }
 
-  const participants = await db
-	    .select({
-	      id: eventParticipants.id,
-	      userId: eventParticipants.userId,
-	      status: eventParticipants.status,
-	      plusOneCount: eventParticipants.plusOneCount,
-	      joinedAt: eventParticipants.joinedAt,
-	      name: users.name,
-	      avatarUrl: users.avatarUrl,
-	      creditScore: users.creditScore,
-	      isBlacklisted: users.isBlacklisted,
-	      role: users.role,
-	      activeTitle: users.activeTitle,
-	      activeBadge: users.activeBadge,
-	      jCoins: users.jCoins,
-	    })
-    .from(eventParticipants)
-    .leftJoin(users, eq(eventParticipants.userId, users.id))
-    .where(eq(eventParticipants.eventId, id));
+  let participants: any[] = [];
+  try {
+    participants = await db
+      .select({
+        id: eventParticipants.id,
+        userId: eventParticipants.userId,
+        status: eventParticipants.status,
+        plusOneCount: eventParticipants.plusOneCount,
+        joinedAt: eventParticipants.joinedAt,
+        name: users.name,
+        avatarUrl: users.avatarUrl,
+        creditScore: users.creditScore,
+        isBlacklisted: users.isBlacklisted,
+        role: users.role,
+        activeTitle: users.activeTitle,
+        activeBadge: users.activeBadge,
+        jCoins: users.jCoins,
+      })
+      .from(eventParticipants)
+      .leftJoin(users, eq(eventParticipants.userId, users.id))
+      .where(eq(eventParticipants.eventId, id));
+  } catch (error) {
+    console.error("participants fetch error, falling back to basic fields:", error);
+    const raw = await db
+      .select({
+        id: eventParticipants.id,
+        userId: eventParticipants.userId,
+        status: eventParticipants.status,
+        plusOneCount: eventParticipants.plusOneCount,
+        joinedAt: eventParticipants.joinedAt,
+        name: users.name,
+        avatarUrl: users.avatarUrl,
+        creditScore: users.creditScore,
+        isBlacklisted: users.isBlacklisted,
+        role: users.role,
+      })
+      .from(eventParticipants)
+      .leftJoin(users, eq(eventParticipants.userId, users.id))
+      .where(eq(eventParticipants.eventId, id));
+    
+    participants = raw.map(p => ({
+      ...p,
+      activeTitle: null,
+      activeBadge: null,
+      jCoins: 0,
+    }));
+  }
 
   const approved = participants.filter((p) => p.status === "approved");
   const waitlist = participants.filter((p) => p.status === "waitlist");
