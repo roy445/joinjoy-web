@@ -9,6 +9,7 @@ import { SectionTitle, EmptyState } from "@/components/ui";
 import { EventCard } from "@/components/event-card";
 import { RecommendedSection } from "@/components/recommended-section";
 import { ArrowUpRight, Megaphone, Sparkles } from "lucide-react";
+import { BetaBadge } from "@/components/beta-badge";
 
 export const dynamic = "force-dynamic";
 
@@ -122,7 +123,7 @@ export default async function HomePage({
           <div className="flex-1">
             <span className="flex items-center gap-2 font-black">
               新功能上線啦！✨ AI 城市探索規劃器
-              <span className="rounded bg-white/20 px-1.5 py-0.5 text-[10px] font-black uppercase tracking-wider">Beta</span>
+              <BetaBadge />
             </span>
             <p className="mt-0.5 text-xs text-white/80">別再問「要去哪？」讓 AI 替你安排專屬揪團方案，一鍵開團！</p>
           </div>

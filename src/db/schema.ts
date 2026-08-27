@@ -151,6 +151,8 @@ export const events = pgTable(
     allowPlusOne: boolean("allow_plus_one").notNull().default(false),
     isPrivate: boolean("is_private").notNull().default(false),
     tags: jsonb("tags").$type<string[]>().default([]),
+    aiItinerary: jsonb("ai_itinerary").$type<any>().default(null),
+    isAiPlanned: boolean("is_ai_planned").default(false).notNull(),
     status: varchar("status", { length: 20 }).notNull().default("upcoming"), // upcoming|ongoing|completed|cancelled
     cancelReason: text("cancel_reason"),
     hostId: integer("host_id").notNull().references(() => users.id),

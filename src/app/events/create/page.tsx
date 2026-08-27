@@ -2,7 +2,7 @@
 
 import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Loader2, ImagePlus, KeyRound, Send, CheckCircle2, BookOpenCheck } from "lucide-react";
+import { Loader2, ImagePlus, KeyRound, Send, CheckCircle2, BookOpenCheck, Sparkles } from "lucide-react";
 import { REGIONS } from "@/lib/constants";
 import { SectionTitle } from "@/components/ui";
 import { HostGuidelinesModal } from "@/components/host-guidelines-modal";
@@ -169,6 +169,7 @@ const defaultForm = {
   capacity: "", fee: "", contactInfo: "", notes: "",
   requireApproval: false, allowWaitlist: true, ageMin: "", ageMax: "", genderLimit: "any",
   allowPlusOne: false, isPrivate: false, groupId: "",
+  aiItinerary: null as any, isAiPlanned: false,
 };
 
 function EventForm({ credits, isAdmin, presetGroupId }: { credits: number; isAdmin: boolean; presetGroupId?: string | null }) {
@@ -184,7 +185,13 @@ function EventForm({ credits, isAdmin, presetGroupId }: { credits: number; isAdm
       const raw = window.localStorage.getItem("joinjoy:planner-preset");
       if (raw) {
         const preset = JSON.parse(raw);
-        window.setTimeout(() => setForm((current) => ({ ...current, ...preset })), 0);
+        // Map preset to form fields, including new AI fields
+        const mappedPreset = {
+          ...preset,
+          aiItinerary: preset.aiItinerary || null,
+          isAiPlanned: preset.isAiPlanned || !!preset.aiItinerary
+        };
+        window.setTimeout(() => setForm((current) => ({ ...current, ...mappedPreset })), 0);
         window.localStorage.removeItem("joinjoy:planner-preset");
       }
     } catch {
@@ -268,6 +275,36 @@ function EventForm({ credits, isAdmin, presetGroupId }: { credits: number; isAdm
         <Field label="活動名稱" required><input required maxLength={150} value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} className="input" /></Field>
 
         <Field label="活動介紹" required><textarea required rows={5} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className="input" placeholder="詳細描述活動內容、行程、適合對象..." /></Field>
+
+        {form.aiItinerary && (
+          <div className="mt-4 rounded-2xl border border-brand-500/20 bg-brand-50/50 p-4">
+            <div className="mb-3 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Sparkles size={16} className="text-brand-500" />
+                <span className="text-sm font-bold text-brand-700">AI 行程專區</span>
+              </div>
+              <button 
+                type="button" 
+                onClick={() => setForm(f => ({ ...f, aiItinerary: null, isAiPlanned: false }))}
+                className="text-[10px] font-bold text-soft hover:text-rose-500"
+              >
+                移除行程
+              </button>
+            </div>
+            <div className="space-y-2">
+              {form.aiItinerary.stops?.map((stop: any, i: number) => (
+                <div key={i} className="flex items-start gap-2 text-xs">
+                  <span className="font-bold text-brand-600 shrink-0">{stop.time}</span>
+                  <div className="flex-1">
+                    <p className="font-bold text-main">{stop.place?.name || stop.title}</p>
+                    <p className="text-soft line-clamp-1">{stop.place?.address || stop.detail}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <p className="mt-3 text-[10px] text-soft italic">此行程將會顯示在活動詳情頁面的顯眼位置。</p>
+          </div>
+        )}
       </FormSection>
 
       <FormSection title="時間與地點">

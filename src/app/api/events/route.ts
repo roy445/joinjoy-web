@@ -176,6 +176,8 @@ export async function POST(req: NextRequest) {
         allowPlusOne: !!body.allowPlusOne,
         isPrivate: groupId ? true : !!body.isPrivate,
         tags: Array.isArray(body.tags) ? body.tags.slice(0, 8) : [],
+        aiItinerary: body.aiItinerary || null,
+        isAiPlanned: !!body.isAiPlanned,
         hostId: user.id,
         groupId,
       })

@@ -1,9 +1,11 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { ArrowRight, ArrowUpRight, Check, Copy, Info, MapPin, RefreshCw, Sparkles, Users, WalletCards, X } from "lucide-react";
+import { ArrowRight, ArrowUpRight, Check, Copy, Info, MapPin, RefreshCw, Sparkles, Users, WalletCards, X, MessageSquare, Layout } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { BetaBadge } from "@/components/beta-badge";
+import { PlannerChat } from "@/components/planner-chat";
 
 const quickStarts = ["吃飯", "玩樂", "逛街", "看電影", "景點", "聊天放鬆", "隨機決定"];
 const vibes = ["輕鬆聊天", "拍照打卡", "刺激好玩", "美食優先", "購物逛街"];
@@ -196,6 +198,7 @@ export function PlannerClient() {
 
   const [seed, setSeed] = useState(1);
   const [selectedQuick, setSelectedQuick] = useState("");
+  const [plannerMode, setPlannerMode] = useState<"form" | "chat">("form");
   const [weather, setWeather] = useState<Weather | null>(null);
   const [weatherLoading, setWeatherLoading] = useState(false);
   const [weatherError, setWeatherError] = useState("");
@@ -330,13 +333,37 @@ export function PlannerClient() {
       fee: plan.cost,
       region: form.origin,
       tags: [...plan.tags, "AI 出遊規劃"],
+      aiItinerary: { ...plan, stops: plan.stops.map((s, i) => ({ ...s, place: places[plan.title]?.[i] })) },
+      isAiPlanned: true,
     }));
     router.push("/events/create?planner=1");
   }
   async function sharePlan(plan: Plan) {
-    const text = `${plan.emoji} ${plan.title}\n${plan.summary}\n預估每人 $${plan.cost}｜${plan.match}% 符合條件`;
-    if (navigator.share) await navigator.share({ title: "JoinJoy AI 出遊方案", text, url: window.location.href });
-    else { await navigator.clipboard.writeText(`${text}\n${window.location.href}`); setShareOpen(true); }
+    const route = routes[plan.title];
+    const text = `✨ JoinJoy AI 出遊方案推薦：${plan.emoji} ${plan.title} ✨\n\n` +
+      `📝 方案簡介：${plan.summary}\n` +
+      `📅 預計日期：${form.date}\n` +
+      `💰 預估每人：$${plan.cost}\n` +
+      `🎯 匹配程度：${plan.match}%\n\n` +
+      `🕒 行程安排：\n` +
+      plan.stops.map((stop, i) => {
+        const placeName = places[plan.title]?.[i]?.name || stop.title;
+        return `${stop.time}｜${placeName}\n   📍 ${places[plan.title]?.[i]?.address || stop.detail}`;
+      }).join("\n\n") +
+      `\n\n🚗 交通估算：${route ? `${route.distanceKm} km｜約 ${route.durationMinutes} 分鐘` : plan.travel}\n` +
+      `🔗 立即查看並開團：${window.location.href}`;
+
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: `JoinJoy 行程：${plan.title}`, text });
+      } catch (err) {
+        await navigator.clipboard.writeText(text);
+        setGenerationNote("行程已複製到剪貼簿！");
+      }
+    } else {
+      await navigator.clipboard.writeText(text);
+      setGenerationNote("行程已複製到剪貼簿！");
+    }
   }
 
   if (!me) {
@@ -388,11 +415,30 @@ export function PlannerClient() {
                 <h2 className="mt-1 text-2xl font-black">先告訴我你們想怎麼玩</h2>
                 <p className="mt-2 text-xs text-soft">你的條件只會用來生成這次出遊方案。</p>
               </div>
-              <Link href="/planner/guide" className="flex items-center gap-1.5 text-xs font-bold text-brand-500 hover:text-brand-400 transition-colors">
-                <Info size={14} /> 使用指南
-              </Link>
+              <div className="flex items-center gap-3">
+                <div className="flex rounded-full bg-app-soft p-1">
+                  <button onClick={() => setPlannerMode("form")} className={`flex items-center gap-1.5 rounded-full px-3 py-1 text-[10px] font-bold transition ${plannerMode === "form" ? "bg-white text-brand-600 shadow-sm" : "text-soft hover:text-main"}`}><Layout size={12} /> 表單模式</button>
+                  <button onClick={() => setPlannerMode("chat")} className={`flex items-center gap-1.5 rounded-full px-3 py-1 text-[10px] font-bold transition ${plannerMode === "chat" ? "bg-white text-brand-600 shadow-sm" : "text-soft hover:text-main"}`}><MessageSquare size={12} /> 對話模式</button>
+                </div>
+                <Link href="/planner/guide" className="flex items-center gap-1.5 text-xs font-bold text-brand-500 hover:text-brand-400 transition-colors">
+                  <Info size={14} /> 使用指南
+                </Link>
+              </div>
             </div>
-            <div className="flex flex-wrap gap-2">{quickStarts.map((item) => <button key={item} onClick={() => handleQuickStart(item)} className={`rounded-full border px-3 py-2 text-sm transition ${selectedQuick === item ? "border-brand-500 bg-brand-500 text-white" : "border-[var(--color-border)] text-main hover:border-brand-400"}`}>{item}</button>)}</div>
+
+            {plannerMode === "chat" ? (
+              <PlannerChat 
+                currentForm={form} 
+                onComplete={(newForm) => {
+                  setForm(prev => ({ ...prev, ...newForm }));
+                  setPlannerMode("form");
+                }} 
+              />
+            ) : (
+              <>
+                <div className="flex flex-wrap gap-2">{quickStarts.map((item) => <button key={item} onClick={() => handleQuickStart(item)} className={`rounded-full border px-3 py-2 text-sm transition ${selectedQuick === item ? "border-brand-500 bg-brand-500 text-white" : "border-[var(--color-border)] text-main hover:border-brand-400"}`}>{item}</button>)}</div>
+              </>
+            )}
             <p className="mb-3 mt-7 text-[11px] font-bold uppercase tracking-[0.2em] text-soft">基本條件 / BASIC SIGNALS</p><div className="grid gap-4 sm:grid-cols-2">
               <label className="text-sm text-main">人數<input type="number" min="1" max="30" value={form.people} onChange={(e) => update("people", Number(e.target.value))} className="planner-input" /></label>
               <label className="text-sm text-main">每人預算<input type="number" min="100" value={form.budget} onChange={(e) => update("budget", Number(e.target.value))} className="planner-input" /></label>

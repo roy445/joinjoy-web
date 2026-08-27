@@ -5,6 +5,7 @@ import Link from "next/link";
 import {
   MapPin, Users, Calendar, Clock, Share2, Heart, Flag, MessageCircle,
   Send, ImagePlus, Megaphone, BarChart3, ShieldAlert, Loader2, Check, X, Copy,
+  ArrowUpRight, Sparkles,
 } from "lucide-react";
 import { formatDate, eventStatusLabel, genderLimitLabel, timeAgo } from "@/lib/utils";
 import { Badge, CreditBadge, BlacklistBadge, EmptyState } from "@/components/ui";
@@ -348,6 +349,56 @@ function InfoTab({ event, isOwner, isAdmin, showToast, reload }: any) {
         <h3 className="mb-2 font-display font-bold text-main">活動介紹</h3>
         <p className="whitespace-pre-line text-sm leading-relaxed text-soft">{event.description}</p>
       </div>
+
+      {event.aiItinerary && (
+        <div className="rounded-3xl border border-brand-500/20 bg-brand-50/30 p-5 md:p-6">
+          <div className="mb-4 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-brand-500 text-white shadow-lg shadow-brand-500/20">
+                <Sparkles size={18} />
+              </div>
+              <div>
+                <h3 className="font-display text-lg font-bold text-main">AI 行程專區</h3>
+                <p className="text-[10px] font-bold uppercase tracking-widest text-brand-500">AI PLANNED ITINERARY</p>
+              </div>
+            </div>
+            {event.isAiPlanned && (
+              <span className="rounded-full bg-brand-500/10 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-brand-600">
+                Verified Plan
+              </span>
+            )}
+          </div>
+
+          <div className="relative space-y-6 border-l-2 border-brand-200/60 pl-6 ml-3">
+            {event.aiItinerary.stops?.map((stop: any, i: number) => (
+              <div key={i} className="relative">
+                <div className="absolute -left-[33px] top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-white ring-2 ring-brand-500">
+                  <div className="h-1.5 w-1.5 rounded-full bg-brand-500" />
+                </div>
+                <div className="flex flex-wrap items-baseline justify-between gap-2">
+                  <h4 className="text-sm font-black text-brand-600">{stop.time}｜{stop.place?.name || stop.title}</h4>
+                  <span className="text-[10px] font-bold text-soft">${stop.cost}</span>
+                </div>
+                <p className="mt-1 text-sm text-soft leading-relaxed">{stop.place?.address || stop.detail}</p>
+                {stop.place?.address && (
+                  <a 
+                    href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${stop.place.name} ${stop.place.address}`)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-2 inline-flex items-center gap-1 text-[10px] font-bold text-brand-500 hover:underline"
+                  >
+                    在地圖中查看 <ArrowUpRight size={10} />
+                  </a>
+                )}
+              </div>
+            ))}
+          </div>
+          
+          <div className="mt-6 rounded-2xl bg-white/60 p-3 text-[10px] text-soft leading-relaxed">
+            <p>💡 <b>揪主小叮嚀：</b>此行程由 AI 輔助規劃，建議報名前先與揪主確認實際集合細節。祝你有個愉快的探索旅程！</p>
+          </div>
+        </div>
+      )}
 
       {event.images && event.images.length > 0 && (
         <div className="grid grid-cols-2 gap-2 md:grid-cols-3">
