@@ -10,14 +10,18 @@ import { autoUpdateEventStatuses } from "@/lib/event-status";
 
 async function loadEvent(id: number) {
   const [event] = await db
-    .select({
-      event: events,
-      hostName: users.name,
-      hostAvatar: users.avatarUrl,
-      hostBio: users.bio,
-      hostCredit: users.creditScore,
-      groupName: groups.name,
-    })
+	    .select({
+	      event: events,
+	      hostName: users.name,
+	      hostAvatar: users.avatarUrl,
+	      hostBio: users.bio,
+	      hostCredit: users.creditScore,
+	      hostRole: users.role,
+	      hostTitle: users.activeTitle,
+	      hostBadge: users.activeBadge,
+	      hostJCoins: users.jCoins,
+	      groupName: groups.name,
+	    })
     .from(events)
     .leftJoin(users, eq(events.hostId, users.id))
     .leftJoin(groups, eq(events.groupId, groups.id))
@@ -59,17 +63,21 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   }
 
   const participants = await db
-    .select({
-      id: eventParticipants.id,
-      userId: eventParticipants.userId,
-      status: eventParticipants.status,
-      plusOneCount: eventParticipants.plusOneCount,
-      joinedAt: eventParticipants.joinedAt,
-      name: users.name,
-      avatarUrl: users.avatarUrl,
-      creditScore: users.creditScore,
-      isBlacklisted: users.isBlacklisted,
-    })
+	    .select({
+	      id: eventParticipants.id,
+	      userId: eventParticipants.userId,
+	      status: eventParticipants.status,
+	      plusOneCount: eventParticipants.plusOneCount,
+	      joinedAt: eventParticipants.joinedAt,
+	      name: users.name,
+	      avatarUrl: users.avatarUrl,
+	      creditScore: users.creditScore,
+	      isBlacklisted: users.isBlacklisted,
+	      role: users.role,
+	      activeTitle: users.activeTitle,
+	      activeBadge: users.activeBadge,
+	      jCoins: users.jCoins,
+	    })
     .from(eventParticipants)
     .leftJoin(users, eq(eventParticipants.userId, users.id))
     .where(eq(eventParticipants.eventId, id));
@@ -98,14 +106,18 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   return NextResponse.json({
     event: record.event,
     group: record.event.groupId ? { id: record.event.groupId, name: record.groupName } : null,
-    host: {
-      id: record.event.hostId,
-      name: record.hostName,
-      avatarUrl: record.hostAvatar,
-      bio: record.hostBio,
-      creditScore: record.hostCredit,
-      eventsHosted: hostEventsCount[0]?.count ?? 0,
-    },
+	    host: {
+	      id: record.event.hostId,
+	      name: record.hostName,
+	      avatarUrl: record.hostAvatar,
+	      bio: record.hostBio,
+	      creditScore: record.hostCredit,
+	      role: record.hostRole,
+	      activeTitle: record.hostTitle,
+	      activeBadge: record.hostBadge,
+	      jCoins: record.hostJCoins,
+	      eventsHosted: hostEventsCount[0]?.count ?? 0,
+	    },
     participants: approved,
     waitlist,
     pending: currentUser && (currentUser.id === record.event.hostId || currentUser.role === "admin") ? pending : [],

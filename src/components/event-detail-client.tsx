@@ -7,8 +7,10 @@ import {
   Send, ImagePlus, Megaphone, BarChart3, ShieldAlert, Loader2, Check, X, Copy,
   ArrowUpRight, Sparkles,
 } from "lucide-react";
+import { JCoin } from "@/components/j-coin";
 import { formatDate, eventStatusLabel, genderLimitLabel, timeAgo } from "@/lib/utils";
 import { Badge, CreditBadge, BlacklistBadge, EmptyState } from "@/components/ui";
+import { UserHonor } from "@/components/user-honor";
 import { REPORT_REASONS } from "@/lib/constants";
 import { ShareModal } from "@/components/share-modal";
 
@@ -79,8 +81,21 @@ export function EventDetailClient({ id }: { id: string }) {
           <img src={host.avatarUrl || `https://api.dicebear.com/9.x/notionists/svg?seed=${host.id}`} alt="" className="h-12 w-12 rounded-full object-cover" />
           <div className="min-w-0 flex-1">
             <p className="text-xs text-soft">揪主</p>
-            <p className="truncate font-bold text-main">{host.name}</p>
-            <div className="mt-0.5"><CreditBadge score={host.creditScore} /></div>
+            <UserHonor
+              name={host.name}
+              role={host.role}
+              activeTitle={host.activeTitle}
+              activeBadge={host.activeBadge}
+              isHost={true}
+              nameClassName="text-sm"
+            />
+            <div className="mt-0.5 flex items-center gap-2">
+              <CreditBadge score={host.creditScore} />
+              <div className="flex items-center gap-1 text-[10px] font-bold text-amber-600 dark:text-amber-400">
+                <JCoin size={12} />
+                {host.jCoins || 0}
+              </div>
+            </div>
           </div>
         </Link>
         <InfoTile icon={<Calendar size={16} />} label="日期時間" value={`${formatDate(event.eventDate)} ${event.startTime}${event.endTime ? ` - ${event.endTime}` : ""}`} />
@@ -556,8 +571,20 @@ function ParticipantsTab({ event, participants, waitlist, pending, isOwner, me, 
                 <Link href={`/profile/${p.userId}`} className="flex items-center gap-2">
                   <img src={p.avatarUrl || `https://api.dicebear.com/9.x/notionists/svg?seed=${p.userId}`} className="h-9 w-9 rounded-full object-cover" alt="" />
                   <div>
-                    <span className="flex items-center gap-1.5 text-sm font-semibold text-main">{p.name} {p.plusOneCount > 0 && <span className="text-xs text-soft">+{p.plusOneCount}</span>}</span>
-                    {p.isBlacklisted && <BlacklistBadge />}
+                    <UserHonor
+                      name={p.name}
+                      role={p.role}
+                      activeTitle={p.activeTitle}
+                      activeBadge={p.activeBadge}
+                      nameClassName="text-sm"
+                    />
+                    <div className="mt-0.5 flex items-center gap-2">
+                      {p.isBlacklisted && <BlacklistBadge />}
+                      <div className="flex items-center gap-0.5 text-[10px] font-bold text-amber-600">
+                        <JCoin size={10} />
+                        {p.jCoins || 0}
+                      </div>
+                    </div>
                   </div>
                 </Link>
                 <div className="flex items-center gap-1.5">

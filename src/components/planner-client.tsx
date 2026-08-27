@@ -351,10 +351,10 @@ export function PlannerClient() {
       capacity: form.people,
       fee: plan.cost,
       region: form.origin,
-      tags: [...plan.tags, "AI 出遊規劃"],
-      aiItinerary: { ...plan, stops: plan.stops.map((s, i) => ({ ...s, place: planPlaces[i] })) },
+      tags: [...plan.tags, "AI規劃"],
+      coverImageUrl: coverImage,
+      aiItinerary: { ...plan, places: planPlaces, weather, route },
       isAiPlanned: true,
-      imageUrl: coverImage,
     }));
     router.push("/events/create?planner=1");
   }

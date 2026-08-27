@@ -10,19 +10,22 @@ export async function GET() {
   const currentUser = await getCurrentUser();
 
   const upcoming = await db
-    .select({
-      id: events.id,
-      title: events.title,
-      coverImageUrl: events.coverImageUrl,
-      eventDate: events.eventDate,
-      startTime: events.startTime,
-      region: events.region,
-      tags: events.tags,
-      hostName: users.name,
-      capacity: events.capacity,
-      fee: events.fee,
-      meetingLocation: events.meetingLocation,
-    })
+	    .select({
+	      id: events.id,
+	      title: events.title,
+	      coverImageUrl: events.coverImageUrl,
+	      eventDate: events.eventDate,
+	      startTime: events.startTime,
+	      region: events.region,
+	      tags: events.tags,
+	      hostName: users.name,
+	      hostRole: users.role,
+	      hostTitle: users.activeTitle,
+	      hostBadge: users.activeBadge,
+	      capacity: events.capacity,
+	      fee: events.fee,
+	      meetingLocation: events.meetingLocation,
+	    })
     .from(events)
     .leftJoin(users, eq(events.hostId, users.id))
     .where(and(eq(events.isPrivate, false), ne(events.status, "cancelled"), ne(events.status, "completed")))

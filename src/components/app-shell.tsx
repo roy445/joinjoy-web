@@ -18,11 +18,14 @@ import {
   PlusCircle,
   Users,
   Sparkles,
+  ShoppingBag,
 } from "lucide-react";
 import { Logo } from "@/components/logo";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { NotificationBell } from "@/components/notification-bell";
 import { BetaBadge } from "@/components/beta-badge";
+import { UserHonor } from "@/components/user-honor";
+import { JCoin } from "@/components/j-coin";
 import type { ClientUser } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -36,6 +39,7 @@ const exploreNav = [
 ];
 
 const otherNav = [
+  { href: "/shop", label: "榮譽商城", icon: ShoppingBag },
   { href: "/leaderboard", label: "排行榜", icon: Trophy },
   { href: "/notifications", label: "通知中心", icon: Bell },
   { href: "/settings", label: "個人設定", icon: Settings },
@@ -168,8 +172,20 @@ export function AppShell({ user, children }: { user: ClientUser | null; children
               className="h-10 w-10 shrink-0 rounded-full object-cover"
             />
             <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-semibold text-main">{user.name}</p>
-              <p className="truncate text-xs text-soft">信用分數 {Number(user.creditScore).toFixed(0)}</p>
+              <UserHonor
+                name={user.name}
+                role={user.role}
+                activeTitle={user.activeTitle}
+                activeBadge={user.activeBadge}
+                nameClassName="text-sm"
+              />
+              <div className="mt-0.5 flex items-center gap-2">
+                <p className="truncate text-[10px] text-soft">信用 {Number(user.creditScore).toFixed(0)}</p>
+                <div className="flex items-center gap-1 text-[10px] font-bold text-amber-600 dark:text-amber-400">
+                  <JCoin size={14} />
+                  {user.jCoins || 0}
+                </div>
+              </div>
             </div>
             <button onClick={handleLogout} aria-label="登出" className="rounded-full p-2 text-soft hover:bg-app hover:text-coral-500">
               <LogOut size={16} />

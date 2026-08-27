@@ -36,6 +36,9 @@ const baseSelect = () =>
       tags: events.tags,
       hostName: users.name,
       hostAvatar: users.avatarUrl,
+      hostRole: users.role,
+      hostTitle: users.activeTitle,
+      hostBadge: users.activeBadge,
       participantCount: sql<number>`coalesce(${participantCountSub.count}, 0)`,
     })
     .from(events)
@@ -116,27 +119,29 @@ export default async function HomePage({
   return (
     <div className="mx-auto flex max-w-7xl flex-col gap-10 px-4 py-6 md:px-8 md:py-8">
       <div className="flex flex-col gap-3">
-        <Link href="/planner" className="animate-fade-up group flex items-center gap-3 rounded-2xl bg-gradient-to-r from-brand-500 to-brand-600 px-4 py-3.5 text-sm text-white shadow-lg shadow-brand-500/20 transition hover:scale-[1.01] active:scale-[0.99]">
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-white/20 text-white">
-            <Sparkles size={18} />
-          </div>
-          <div className="flex-1">
-            <span className="flex items-center gap-2 font-black">
-              新功能上線啦！✨ AI 城市探索規劃器
-              <BetaBadge />
-            </span>
-            <p className="mt-0.5 text-xs text-white/80">別再問「要去哪？」讓 AI 替你安排專屬揪團方案，一鍵開團！</p>
-          </div>
-          <div className="flex items-center gap-2">
-            <Link 
-              href="/planner/guide"
-              className="hidden rounded-full bg-white/20 px-3 py-1 text-[10px] font-bold text-white hover:bg-white/30 sm:block"
-            >
-              查看教學
-            </Link>
-            <ArrowUpRight size={20} className="shrink-0 opacity-60 transition group-hover:translate-x-0.5 group-hover:-translate-y-0.5 group-hover:opacity-100" />
-          </div>
-        </Link>
+        <div className="animate-fade-up relative overflow-hidden rounded-2xl bg-gradient-to-r from-brand-500 to-brand-600 shadow-lg shadow-brand-500/20 transition hover:scale-[1.01] active:scale-[0.99]">
+          <Link href="/planner" className="flex items-center gap-3 px-4 py-3.5 text-sm text-white">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-white/20 text-white">
+              <Sparkles size={18} />
+            </div>
+            <div className="flex-1">
+              <span className="flex items-center gap-2 font-black">
+                新功能上線啦！✨ AI 城市探索規劃器
+                <BetaBadge />
+              </span>
+              <p className="mt-0.5 text-xs text-white/80">別再問「要去哪？」讓 AI 替你安排專屬揪團方案，一鍵開團！</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <ArrowUpRight size={20} className="shrink-0 opacity-60" />
+            </div>
+          </Link>
+          <Link 
+            href="/planner/guide"
+            className="absolute right-12 top-1/2 -translate-y-1/2 hidden rounded-full bg-white/20 px-3 py-1 text-[10px] font-bold text-white hover:bg-white/30 sm:block z-10"
+          >
+            查看教學
+          </Link>
+        </div>
 
         {announcement && (
           <div className="animate-fade-up flex items-center gap-3 rounded-2xl bg-gradient-to-r from-brand-500/10 to-coral-500/10 px-4 py-3 text-sm">

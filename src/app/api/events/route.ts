@@ -79,6 +79,9 @@ export async function GET(req: NextRequest) {
       hostId: events.hostId,
       hostName: users.name,
       hostAvatar: users.avatarUrl,
+      hostRole: users.role,
+      hostTitle: users.activeTitle,
+      hostBadge: users.activeBadge,
       participantCount: sql<number>`coalesce(${participantCountSub.count}, 0)`,
       createdAt: events.createdAt,
     })

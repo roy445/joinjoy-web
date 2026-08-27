@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { MapPin, Users, Calendar, Clock } from "lucide-react";
 import { formatDate, eventStatusLabel } from "@/lib/utils";
+import { UserHonor } from "@/components/user-honor";
 
 export type EventCardData = {
   id: number;
@@ -21,6 +22,9 @@ export type EventCardData = {
   tags?: string[] | null;
   participantCount: number;
   remaining?: number;
+  hostRole?: string | null;
+  hostTitle?: string | null;
+  hostBadge?: string | null;
 };
 
 const statusStyle: Record<string, string> = {
@@ -85,7 +89,14 @@ export function EventCard({ event }: { event: EventCardData }) {
             alt=""
             className="h-5 w-5 rounded-full object-cover"
           />
-          <span className="truncate">{event.hostName || "揪主"}</span>
+          <UserHonor
+            name={event.hostName || "揪主"}
+            role={event.hostRole}
+            activeTitle={event.hostTitle}
+            activeBadge={event.hostBadge}
+            nameClassName="text-[11px]"
+            isHost={true}
+          />
         </div>
         <div className="mt-1 flex flex-col gap-1.5 text-xs text-soft">
           <span className="flex items-center gap-1.5">
