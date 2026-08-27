@@ -35,6 +35,13 @@ export const users = pgTable("users", {
   creditScore: numeric("credit_score", { precision: 6, scale: 2 }).notNull().default("100"),
   isBlacklisted: boolean("is_blacklisted").notNull().default(false),
   noShowCount: integer("no_show_count").notNull().default(0),
+  // ---------- Gamification ----------
+  jCoins: integer("j_coins").notNull().default(0),
+  aiTitles: jsonb("ai_titles").$type<string[]>().default([]),
+  activeTitle: varchar("active_title", { length: 100 }),
+  activeBadge: varchar("active_badge", { length: 100 }),
+  activeAvatarFrame: varchar("active_avatar_frame", { length: 100 }),
+  activityStats: jsonb("activity_stats").$type<Record<string, number>>().default({}),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
@@ -318,6 +325,29 @@ export const blacklist = pgTable("blacklist", {
   removedBy: integer("removed_by").references(() => users.id),
   removedAt: timestamp("removed_at"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// ---------- Shop Items ----------
+export const shopItems = pgTable("shop_items", {
+  id: serial("id").primaryKey(),
+  name: varchar("name", { length: 100 }).notNull(),
+  type: varchar("type", { length: 50 }).notNull(), // title | badge | frame | effect
+  price: integer("price").notNull(),
+  description: text("description"),
+  imageUrl: text("image_url"),
+  rarity: varchar("rarity", { length: 20 }).notNull().default("common"), // common | rare | epic | legendary
+  metadata: jsonb("metadata").$type<any>().default({}), // For special styles/effects
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// ---------- User Inventory (Purchased items) ----------
+export const userInventory = pgTable("user_inventory", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  itemId: integer("item_id").notNull().references(() => shopItems.id, { onDelete: "cascade" }),
+  isEquipped: boolean("is_equipped").notNull().default(false),
+  purchasedAt: timestamp("purchased_at").notNull().defaultNow(),
 });
 
 // ---------- Ratings / credit reviews ----------
