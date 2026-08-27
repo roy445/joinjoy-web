@@ -18,9 +18,6 @@ async function loadEvent(id: number) {
         hostBio: users.bio,
         hostCredit: users.creditScore,
         hostRole: users.role,
-        hostTitle: users.activeTitle,
-        hostBadge: users.activeBadge,
-        hostJCoins: users.jCoins,
         groupName: groups.name,
       })
       .from(events)
@@ -28,7 +25,15 @@ async function loadEvent(id: number) {
       .leftJoin(groups, eq(events.groupId, groups.id))
       .where(eq(events.id, id))
       .limit(1);
-    return event;
+    if (event) {
+      return {
+        ...event,
+        hostTitle: null,
+        hostBadge: null,
+        hostJCoins: 0,
+      } as any;
+    }
+    return null;
   } catch (error) {
     console.error("loadEvent error, falling back to basic fields:", error);
     const [event] = await db
@@ -93,7 +98,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
   let participants: any[] = [];
   try {
-    participants = await db
+    const rawParticipants = await db
       .select({
         id: eventParticipants.id,
         userId: eventParticipants.userId,
@@ -105,13 +110,17 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
         creditScore: users.creditScore,
         isBlacklisted: users.isBlacklisted,
         role: users.role,
-        activeTitle: users.activeTitle,
-        activeBadge: users.activeBadge,
-        jCoins: users.jCoins,
       })
       .from(eventParticipants)
       .leftJoin(users, eq(eventParticipants.userId, users.id))
       .where(eq(eventParticipants.eventId, id));
+    
+    participants = rawParticipants.map(p => ({
+      ...p,
+      activeTitle: null,
+      activeBadge: null,
+      jCoins: 0,
+    }));
   } catch (error) {
     console.error("participants fetch error, falling back to basic fields:", error);
     const raw = await db

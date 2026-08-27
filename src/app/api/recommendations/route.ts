@@ -22,8 +22,6 @@ export async function GET() {
         tags: events.tags,
         hostName: users.name,
         hostRole: users.role,
-        hostTitle: users.activeTitle,
-        hostBadge: users.activeBadge,
         capacity: events.capacity,
         fee: events.fee,
         meetingLocation: events.meetingLocation,
@@ -32,6 +30,12 @@ export async function GET() {
       .leftJoin(users, eq(events.hostId, users.id))
       .where(and(eq(events.isPrivate, false), ne(events.status, "cancelled"), ne(events.status, "completed")))
       .limit(60);
+    
+    upcoming = upcoming.map(e => ({
+      ...e,
+      hostTitle: null,
+      hostBadge: null,
+    }));
   } catch (error) {
     console.error("Recommendations fetch error, falling back to basic fields:", error);
     const fallback = await db

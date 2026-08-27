@@ -98,17 +98,23 @@ export async function getCurrentUser(): Promise<SessionUser | null> {
           canCreateEvent: users.canCreateEvent,
           creditScore: users.creditScore,
           isBlacklisted: users.isBlacklisted,
-          jCoins: users.jCoins,
-          aiTitles: users.aiTitles,
-          activeTitle: users.activeTitle,
-          activeBadge: users.activeBadge,
-          activeAvatarFrame: users.activeAvatarFrame,
+          // Temporary remove columns that might not exist yet to prevent crash
         })
         .from(users)
         .where(eq(users.id, userId))
         .limit(1);
       
-      return rows[0] ?? null;
+      if (!rows[0]) return null;
+      
+      // Manually add defaults for columns we removed above to maintain type compatibility
+      return {
+        ...rows[0],
+        jCoins: 0,
+        aiTitles: [],
+        activeTitle: null,
+        activeBadge: null,
+        activeAvatarFrame: null,
+      } as SessionUser;
     } catch (dbError) {
       console.error("Database schema mismatch, falling back to basic user info:", dbError);
       // Fallback: only select columns that are guaranteed to exist in older versions
