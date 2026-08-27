@@ -61,39 +61,81 @@ export async function GET(req: NextRequest) {
   if (sort === "popular" || tab === "hot") orderBy = desc(sql`coalesce(${participantCountSub.count}, 0)`);
   if (sort === "upcoming" || tab === "upcoming" || sort === "soon") orderBy = asc(events.eventDate);
 
-  const baseQuery = db
-    .select({
-      id: events.id,
-      title: events.title,
-      coverImageUrl: events.coverImageUrl,
-      eventDate: events.eventDate,
-      startTime: events.startTime,
-      meetingLocation: events.meetingLocation,
-      region: events.region,
-      capacity: events.capacity,
-      fee: events.fee,
-      status: events.status,
-      tags: events.tags,
-      lat: events.lat,
-      lng: events.lng,
-      hostId: events.hostId,
-      hostName: users.name,
-      hostAvatar: users.avatarUrl,
-      hostRole: users.role,
-      hostTitle: users.activeTitle,
-      hostBadge: users.activeBadge,
-      participantCount: sql<number>`coalesce(${participantCountSub.count}, 0)`,
-      createdAt: events.createdAt,
-    })
-    .from(events)
-    .leftJoin(users, eq(events.hostId, users.id))
-    .leftJoin(participantCountSub, eq(participantCountSub.eventId, events.id))
-    .where(conditions.length ? and(...conditions) : undefined)
-    .orderBy(orderBy)
-    .limit(limit)
-    .offset((page - 1) * limit);
-
-  const rows = await baseQuery;
+  let rows: any[] = [];
+  try {
+    const baseQuery = db
+      .select({
+        id: events.id,
+        title: events.title,
+        coverImageUrl: events.coverImageUrl,
+        eventDate: events.eventDate,
+        startTime: events.startTime,
+        meetingLocation: events.meetingLocation,
+        region: events.region,
+        capacity: events.capacity,
+        fee: events.fee,
+        status: events.status,
+        tags: events.tags,
+        lat: events.lat,
+        lng: events.lng,
+        hostId: events.hostId,
+        hostName: users.name,
+        hostAvatar: users.avatarUrl,
+        hostRole: users.role,
+        hostTitle: users.activeTitle,
+        hostBadge: users.activeBadge,
+        participantCount: sql<number>`coalesce(${participantCountSub.count}, 0)`,
+        createdAt: events.createdAt,
+      })
+      .from(events)
+      .leftJoin(users, eq(events.hostId, users.id))
+      .leftJoin(participantCountSub, eq(participantCountSub.eventId, events.id))
+      .where(conditions.length ? and(...conditions) : undefined)
+      .orderBy(orderBy)
+      .limit(limit)
+      .offset((page - 1) * limit);
+    
+    rows = await baseQuery;
+  } catch (error) {
+    console.error("Event list fetch error, falling back to basic fields:", error);
+    // Fallback to basic fields that are guaranteed to exist
+    const fallbackQuery = db
+      .select({
+        id: events.id,
+        title: events.title,
+        coverImageUrl: events.coverImageUrl,
+        eventDate: events.eventDate,
+        startTime: events.startTime,
+        meetingLocation: events.meetingLocation,
+        region: events.region,
+        capacity: events.capacity,
+        fee: events.fee,
+        status: events.status,
+        tags: events.tags,
+        lat: events.lat,
+        lng: events.lng,
+        hostId: events.hostId,
+        hostName: users.name,
+        hostAvatar: users.avatarUrl,
+        hostRole: users.role,
+        participantCount: sql<number>`coalesce(${participantCountSub.count}, 0)`,
+        createdAt: events.createdAt,
+      })
+      .from(events)
+      .leftJoin(users, eq(events.hostId, users.id))
+      .leftJoin(participantCountSub, eq(participantCountSub.eventId, events.id))
+      .where(conditions.length ? and(...conditions) : undefined)
+      .orderBy(orderBy)
+      .limit(limit)
+      .offset((page - 1) * limit);
+    
+    const rawRows = await fallbackQuery;
+    rows = rawRows.map(r => ({
+      ...r,
+      hostTitle: null,
+      hostBadge: null,
+    }));
+  }
 
   return NextResponse.json({
     events: rows.map((r) => ({ ...r, remaining: Math.max(0, r.capacity - Number(r.participantCount)) })),

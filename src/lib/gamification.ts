@@ -1,5 +1,5 @@
 import { db } from "@/db";
-import { users, eventParticipants, events } from "@/db/schema";
+import { users, eventParticipants, events, userGroupMembers, honorNotifications } from "@/db/schema";
 import { eq, sql, and } from "drizzle-orm";
 
 /**
@@ -40,10 +40,19 @@ export async function processEventRewards(eventId: number) {
 }
 
 async function awardJCoinsInternal(tx: any, userId: number, amount: number, reason: string) {
+  // Get user group bonus
+  const membership = await tx.query.userGroupMembers.findFirst({
+    where: eq(userGroupMembers.userId, userId),
+    with: { group: true }
+  });
+  
+  const bonusPercent = membership?.group?.jCoinBonus ?? 0;
+  const finalAmount = Math.floor(amount * (1 + bonusPercent / 100));
+
   await tx
     .update(users)
     .set({
-      jCoins: sql`${users.jCoins} + ${amount}`,
+      jCoins: sql`${users.jCoins} + ${finalAmount}`,
     })
     .where(eq(users.id, userId));
 }
@@ -81,6 +90,15 @@ async function updateUserStatsInternal(tx: any, userId: number, tags: string[]) 
     const count = (stats[check.cat] || 0) + (check.catAlt ? (stats[check.catAlt] || 0) : 0);
     if (count >= check.count && !newTitles.includes(check.title)) {
       newTitles.push(check.title);
+      
+      // Create honor notification
+      await tx.insert(honorNotifications).values({
+        userId,
+        type: "title",
+        targetId: check.title,
+        title: `解鎖新稱號：${check.title}`,
+        content: `恭喜！你在${check.cat}類別的活躍表現讓你獲得了這個榮譽！`,
+      });
     }
   }
 

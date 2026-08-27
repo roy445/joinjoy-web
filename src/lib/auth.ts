@@ -70,33 +70,80 @@ export async function destroySession() {
 }
 
 export async function getCurrentUser(): Promise<SessionUser | null> {
-  const cookieStore = await cookies();
-  const token = cookieStore.get(SESSION_COOKIE)?.value;
-  if (!token) return null;
+  try {
+    const cookieStore = await cookies();
+    const token = cookieStore.get(SESSION_COOKIE)?.value;
+    if (!token) return null;
 
-  const rows = await db
-    .select({
-      id: users.id,
-      email: users.email,
-      name: users.name,
-      avatarUrl: users.avatarUrl,
-      role: users.role,
-      status: users.status,
-      canCreateEvent: users.canCreateEvent,
-      creditScore: users.creditScore,
-      isBlacklisted: users.isBlacklisted,
-      jCoins: users.jCoins,
-      aiTitles: users.aiTitles,
-      activeTitle: users.activeTitle,
-      activeBadge: users.activeBadge,
-      activeAvatarFrame: users.activeAvatarFrame,
-    })
-    .from(sessions)
-    .innerJoin(users, eq(sessions.userId, users.id))
-    .where(and(eq(sessions.token, token), gt(sessions.expiresAt, new Date())))
-    .limit(1);
+    // First, check if the session exists
+    const sessionRows = await db
+      .select()
+      .from(sessions)
+      .where(and(eq(sessions.token, token), gt(sessions.expiresAt, new Date())))
+      .limit(1);
 
-  return rows[0] ?? null;
+    if (sessionRows.length === 0) return null;
+    const userId = sessionRows[0].userId;
+
+    // Then, fetch user with error handling for potentially missing columns
+    try {
+      const rows = await db
+        .select({
+          id: users.id,
+          email: users.email,
+          name: users.name,
+          avatarUrl: users.avatarUrl,
+          role: users.role,
+          status: users.status,
+          canCreateEvent: users.canCreateEvent,
+          creditScore: users.creditScore,
+          isBlacklisted: users.isBlacklisted,
+          jCoins: users.jCoins,
+          aiTitles: users.aiTitles,
+          activeTitle: users.activeTitle,
+          activeBadge: users.activeBadge,
+          activeAvatarFrame: users.activeAvatarFrame,
+        })
+        .from(users)
+        .where(eq(users.id, userId))
+        .limit(1);
+      
+      return rows[0] ?? null;
+    } catch (dbError) {
+      console.error("Database schema mismatch, falling back to basic user info:", dbError);
+      // Fallback: only select columns that are guaranteed to exist in older versions
+      const basicRows = await db
+        .select({
+          id: users.id,
+          email: users.email,
+          name: users.name,
+          avatarUrl: users.avatarUrl,
+          role: users.role,
+          status: users.status,
+          canCreateEvent: users.canCreateEvent,
+          creditScore: users.creditScore,
+          isBlacklisted: users.isBlacklisted,
+        })
+        .from(users)
+        .where(eq(users.id, userId))
+        .limit(1);
+      
+      if (basicRows.length === 0) return null;
+      
+      // Map basic user to SessionUser with defaults for new fields
+      return {
+        ...basicRows[0],
+        jCoins: 0,
+        aiTitles: [],
+        activeTitle: null,
+        activeBadge: null,
+        activeAvatarFrame: null,
+      } as SessionUser;
+    }
+  } catch (error) {
+    console.error("Critical Auth Error:", error);
+    return null;
+  }
 }
 
 export async function requireUser(): Promise<SessionUser> {
