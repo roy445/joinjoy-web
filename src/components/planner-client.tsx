@@ -215,14 +215,13 @@ export function PlannerClient() {
 
   useEffect(() => {
     // 檢查是否為第一次進入 Planner，如果是則顯示指南
-    const hasSeenGuide = window.localStorage.getItem("joinjoy:planner-guide-seen");
-    if (!hasSeenGuide && me) {
-      // 使用 setTimeout 確保在下一個事件循環中觸發，避免同步 setState 警告
-      const timer = setTimeout(() => {
+    // 直接判斷 localStorage 並立即設定，避免延遲跳出
+    if (typeof window !== "undefined" && me) {
+      const hasSeenGuide = window.localStorage.getItem("joinjoy:planner-guide-seen");
+      if (!hasSeenGuide) {
         setGuideModalOpen(true);
         window.localStorage.setItem("joinjoy:planner-guide-seen", "true");
-      }, 500);
-      return () => clearTimeout(timer);
+      }
     }
   }, [me]);
   const [routeError, setRouteError] = useState("");
@@ -626,48 +625,55 @@ export function PlannerClient() {
 
       {/* Guide Modal */}
       {guideModalOpen && (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/80 p-4 backdrop-blur-md animate-in fade-in duration-500">
-          <div className="w-full max-w-lg overflow-hidden rounded-[2.5rem] border border-brand-500/20 bg-surface shadow-2xl animate-in zoom-in-95 duration-500">
-            <div className="relative bg-brand-500 p-10 text-center">
-              <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-3xl bg-white/20 text-white shadow-inner">
-                <Sparkles size={40} />
-              </div>
-              <h2 className="mt-6 text-3xl font-black text-white">歡迎使用 AI 規劃器</h2>
-              <p className="mt-2 text-brand-100">開始探索你的專屬揪團方案</p>
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm animate-in fade-in duration-300">
+          <div className="w-full max-w-lg overflow-hidden rounded-[2rem] border border-coral-500/10 bg-surface shadow-2xl animate-in zoom-in-95 slide-in-from-bottom-10 duration-500">
+            {/* 置頂用法與注意事項樣式 - 參考使用者圖片 */}
+            <div className="relative bg-brand-400 p-8 text-center">
+              <h2 className="text-3xl font-black text-white tracking-tight">歡迎使用 AI 規劃器</h2>
+              <p className="mt-2 text-brand-50 font-medium">開始探索你的專屬揪團方案</p>
             </div>
             
             <div className="p-8">
-              <div className="space-y-6">
-                <div className="flex gap-4">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-500/10 text-brand-500 font-black">1</div>
+              <div className="space-y-8">
+                {/* 步驟 1 */}
+                <div className="flex items-start gap-5 group">
+                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-app-soft text-brand-500 font-black text-lg shadow-sm group-hover:bg-brand-500 group-hover:text-white transition-all">1</div>
                   <div>
-                    <p className="font-black text-main">輸入偏好或對話</p>
-                    <p className="mt-1 text-sm text-soft">告訴 AI 你們的人數、預算與想玩的風格，或是直接用語音/文字對話描述。</p>
-                  </div>
-                </div>
-                <div className="flex gap-4">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-500/10 text-brand-500 font-black">2</div>
-                  <div>
-                    <p className="font-black text-main">生成與挑選方案</p>
-                    <p className="mt-1 text-sm text-soft">AI 會為你找出真實的地點、規劃路線並偵測天氣，你可以挑選最滿意的方案。</p>
-                  </div>
-                </div>
-                <div className="flex gap-4">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-500/10 text-brand-500 font-black">3</div>
-                  <div>
-                    <p className="font-black text-main">一鍵開團出發</p>
-                    <p className="mt-1 text-sm text-soft">點擊開團，行程與圖片會自動同步到揪團頁面，邀請朋友就能立刻出發！</p>
+                    <p className="text-lg font-black text-main">輸入偏好或對話</p>
+                    <p className="mt-1 text-sm font-medium text-soft leading-relaxed">告訴 AI 你們的人數、預算與想玩的風格，或是直接用語音/文字對話描述。</p>
                   </div>
                 </div>
                 
-                <div className="rounded-2xl bg-coral-50 p-4 text-xs text-coral-700">
-                  <p>⚠️ <strong>注意：</strong>AI 生成內容僅供參考，請務必確認店家的實際營業狀況與預約需求。</p>
+                {/* 步驟 2 */}
+                <div className="flex items-start gap-5 group">
+                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-app-soft text-brand-500 font-black text-lg shadow-sm group-hover:bg-brand-500 group-hover:text-white transition-all">2</div>
+                  <div>
+                    <p className="text-lg font-black text-main">生成與挑選方案</p>
+                    <p className="mt-1 text-sm font-medium text-soft leading-relaxed">AI 會為你找出真實的地點、規劃路線並偵測天氣，你可以挑選最滿意的方案。</p>
+                  </div>
+                </div>
+                
+                {/* 步驟 3 */}
+                <div className="flex items-start gap-5 group">
+                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-app-soft text-brand-500 font-black text-lg shadow-sm group-hover:bg-brand-500 group-hover:text-white transition-all">3</div>
+                  <div>
+                    <p className="text-lg font-black text-main">一鍵開團出發</p>
+                    <p className="mt-1 text-sm font-medium text-soft leading-relaxed">點擊開團，行程與圖片會自動同步到揪團頁面，邀請朋友就能立刻出發！</p>
+                  </div>
+                </div>
+                
+                {/* 注意事項區塊 - 完全匹配使用者提供的樣式 */}
+                <div className="rounded-[1.5rem] bg-coral-50 border border-coral-100 p-5 text-sm text-coral-700 shadow-sm animate-pulse-subtle">
+                  <p className="flex items-start gap-2">
+                    <span className="text-lg leading-none">⚠️</span>
+                    <span><strong>注意：</strong>AI 生成內容僅供參考，請務必確認店家的實際營業狀況與預約需求。</span>
+                  </p>
                 </div>
               </div>
               
               <button 
                 onClick={() => setGuideModalOpen(false)}
-                className="mt-8 w-full rounded-2xl bg-brand-500 py-4 text-lg font-black text-white shadow-lg shadow-brand-500/30 hover:-translate-y-1 transition-all"
+                className="mt-10 w-full rounded-[1.5rem] bg-brand-400 py-5 text-xl font-black text-white shadow-xl shadow-brand-500/20 hover:bg-brand-500 hover:-translate-y-1 transition-all active:scale-95"
               >
                 我知道了，開始規劃！
               </button>

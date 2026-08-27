@@ -51,6 +51,18 @@ export function AppShell({ user, children }: { user: ClientUser | null; children
   const pathname = usePathname();
   const router = useRouter();
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [showGamificationGuide, setShowGamificationGuide] = useState(false);
+
+  useEffect(() => {
+    // 檢查是否為第一次登入後進入，顯示遊戲化入門指南
+    if (typeof window !== "undefined" && user) {
+      const hasSeenGamificationGuide = window.localStorage.getItem("joinjoy:gamification-guide-seen");
+      if (!hasSeenGamificationGuide) {
+        setShowGamificationGuide(true);
+        window.localStorage.setItem("joinjoy:gamification-guide-seen", "true");
+      }
+    }
+  }, [user]);
 
   const isAuthPage = pathname === "/login" || pathname === "/register" || pathname === "/forgot-password" || pathname === "/reset-password";
 
@@ -183,7 +195,7 @@ export function AppShell({ user, children }: { user: ClientUser | null; children
               />
               <div className="mt-0.5 flex items-center gap-2">
                 <p className="truncate text-[10px] text-soft">信用 {Number(user.creditScore).toFixed(0)}</p>
-                <div className="flex items-center gap-1 text-[10px] font-bold text-amber-600 dark:text-amber-400">
+                <div className="flex items-center gap-1 text-[10px] font-bold text-amber-600 animate-pulse-subtle dark:text-amber-400">
                   <JCoin size={14} />
                   {user.jCoins || 0}
                 </div>
@@ -238,7 +250,21 @@ export function AppShell({ user, children }: { user: ClientUser | null; children
             <Logo size={32} />
           </div>
           <div className="flex-1" />
-          <div className="ml-auto flex shrink-0 items-center gap-2">
+          <div className="ml-auto flex shrink-0 items-center gap-3">
+            {user && (
+              <Link 
+                href="/shop" 
+                className="group flex items-center gap-2 rounded-2xl bg-amber-50 px-4 py-2.5 transition-all hover:bg-amber-100 hover:shadow-md dark:bg-amber-900/20"
+              >
+                <div className="flex h-7 w-7 items-center justify-center rounded-full bg-white shadow-sm ring-1 ring-amber-200 transition-transform group-hover:scale-110 dark:bg-amber-800 dark:ring-amber-700">
+                  <JCoin size={20} />
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-[10px] font-black uppercase tracking-wider text-amber-600/60 dark:text-amber-400/60">J-Coins</span>
+                  <span className="text-sm font-black text-amber-600 dark:text-amber-400">{user.jCoins || 0}</span>
+                </div>
+              </Link>
+            )}
             <Link href="/events/create" className="btn-coral hidden items-center gap-1.5 rounded-full px-4 py-2 text-sm font-bold whitespace-nowrap md:flex">
               <PlusCircle size={16} /> 建立活動
             </Link>
@@ -288,6 +314,63 @@ export function AppShell({ user, children }: { user: ClientUser | null; children
         <>
           <JueJueChat userId={user.id} />
           <HonorNotificationListener userId={user.id} />
+          
+          {/* Gamification Guide Modal */}
+          {showGamificationGuide && (
+            <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 p-4 backdrop-blur-md animate-in fade-in duration-500">
+              <div className="w-full max-w-lg overflow-hidden rounded-[2.5rem] border border-amber-500/20 bg-surface shadow-2xl animate-in zoom-in-95 slide-in-from-bottom-10 duration-700">
+                <div className="relative overflow-hidden bg-gradient-to-br from-amber-400 to-amber-600 p-10 text-center">
+                  {/* Decorative background coins */}
+                  <div className="absolute -left-5 -top-5 rotate-12 opacity-20"><JCoin size={100} /></div>
+                  <div className="absolute -right-5 -bottom-5 -rotate-12 opacity-20"><JCoin size={120} /></div>
+                  
+                  <div className="relative z-10 mx-auto flex h-24 w-24 items-center justify-center rounded-[2rem] bg-white/20 text-white shadow-2xl backdrop-blur-md">
+                    <JCoin size={60} />
+                  </div>
+                  <h2 className="relative z-10 mt-6 text-3xl font-black text-white tracking-tight">解鎖 JoinJoy 榮譽系統</h2>
+                  <p className="relative z-10 mt-2 text-amber-50 font-medium">開啟你的社群遊戲化之旅</p>
+                </div>
+                
+                <div className="p-8">
+                  <div className="space-y-8">
+                    {/* J-Coins Usage */}
+                    <div className="flex items-start gap-5 group">
+                      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-amber-50 text-amber-600 font-black text-lg shadow-sm group-hover:bg-amber-500 group-hover:text-white transition-all">💰</div>
+                      <div>
+                        <p className="text-lg font-black text-main">J-幣有什麼用？</p>
+                        <p className="mt-1 text-sm font-medium text-soft leading-relaxed">這是你的社群資產！可以在「榮譽商城」購買酷炫的頭像框、稀有稱號與專屬徽章，展現你的社群地位。</p>
+                      </div>
+                    </div>
+                    
+                    {/* How to get */}
+                    <div className="flex items-start gap-5 group">
+                      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-brand-50 text-brand-600 font-black text-lg shadow-sm group-hover:bg-brand-500 group-hover:text-white transition-all">🎯</div>
+                      <div>
+                        <p className="text-lg font-black text-main">如何獲得 J-幣？</p>
+                        <p className="mt-1 text-sm font-medium text-soft leading-relaxed">積極參加活動！揪主每次完成活動可獲 <span className="text-amber-600 font-black">50 J-幣</span>，參加者可獲 <span className="text-amber-600 font-black">10 J-幣</span>。解鎖身分組還有額外加成！</p>
+                      </div>
+                    </div>
+                    
+                    {/* Special Status */}
+                    <div className="flex items-start gap-5 group">
+                      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-coral-50 text-coral-600 font-black text-lg shadow-sm group-hover:bg-coral-500 group-hover:text-white transition-all">✨</div>
+                      <div>
+                        <p className="text-lg font-black text-main">身分與特效</p>
+                        <p className="mt-1 text-sm font-medium text-soft leading-relaxed">你的名稱會根據角色變色（Admin 金色發光、Host 珊瑚橘），累積活動次數還能解鎖 AI 自動授予的趣味稱號。</p>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <button 
+                    onClick={() => setShowGamificationGuide(false)}
+                    className="mt-10 w-full rounded-[1.5rem] bg-amber-500 py-5 text-xl font-black text-white shadow-xl shadow-amber-500/20 hover:bg-amber-600 hover:-translate-y-1 transition-all active:scale-95"
+                  >
+                    太酷了，立即開始！
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </>
       )}
     </div>

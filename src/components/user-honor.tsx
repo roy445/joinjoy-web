@@ -30,7 +30,7 @@ export function UserHonor({
       <span
         className={cn(
           "font-bold",
-          isAdmin ? "animate-gold-glow" : isHost ? "text-coral-600 dark:text-coral-400" : "text-main",
+          isAdmin ? "text-gold-main animate-gold-shine drop-shadow-[0_0_8px_rgba(255,215,0,0.4)]" : isHost ? "text-coral-600 dark:text-coral-400" : "text-main",
           nameClassName
         )}
       >
