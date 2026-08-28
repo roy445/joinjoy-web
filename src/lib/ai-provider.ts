@@ -18,6 +18,37 @@ export type AIMessage = {
   content: string;
 };
 
+type ProviderConfig = {
+  name: string;
+  model: string;
+  priority?: number;
+  apiKey?: string;
+};
+
+const DEFAULT_GEMINI_MODEL = "gemini-2.5-flash-lite";
+
+function normalizeGeminiModel(model: string | undefined): string {
+  const normalized = (model || DEFAULT_GEMINI_MODEL).trim().replace(/^models\//, "");
+
+  // Gemini 1.5/2.0 已停止或即將停止服務；保留舊資料庫設定的相容轉換，
+  // 避免既有設定讓整個 JueJue 請求直接收到 404。
+  if (normalized === "gemini-1.5-flash" || normalized.startsWith("gemini-1.5-flash-")) {
+    return DEFAULT_GEMINI_MODEL;
+  }
+  if (normalized === "gemini-2.0-flash" || normalized.startsWith("gemini-2.0-flash-")) {
+    return "gemini-2.5-flash";
+  }
+
+  return normalized;
+}
+
+function envKeyForProvider(name: string): string | undefined {
+  if (name === "openai") return process.env.OPENAI_API_KEY;
+  if (name === "openrouter") return process.env.OPENROUTER_API_KEY;
+  if (name === "gemini") return process.env.GEMINI_API_KEY;
+  return undefined;
+}
+
 /**
  * AI Provider Manager
  * Handles multi-provider support with fallback and usage logging
@@ -37,12 +68,30 @@ export class AIProviderManager {
   /**
    * Get active providers from database, ordered by priority
    */
-  private async getActiveProviders() {
-    return await db
-      .select()
+  private async getActiveProviders(): Promise<ProviderConfig[]> {
+    const configured = await db
+      .select({
+        name: aiProviders.name,
+        model: aiProviders.model,
+        priority: aiProviders.priority,
+        isActive: aiProviders.isActive,
+      })
       .from(aiProviders)
       .where(eq(aiProviders.isActive, true))
       .orderBy(desc(aiProviders.priority));
+
+    // API keys are deliberately never read from or written to the database.
+    // The database stores routing metadata only; secrets remain Vercel server env vars.
+    return configured
+      .map((provider) => ({
+        name: provider.name.toLowerCase(),
+        model: provider.name.toLowerCase() === "gemini"
+          ? normalizeGeminiModel(provider.model)
+          : provider.model.trim(),
+        priority: provider.priority,
+        apiKey: envKeyForProvider(provider.name.toLowerCase()),
+      }))
+      .filter((provider) => Boolean(provider.apiKey));
   }
 
   /**
@@ -53,8 +102,14 @@ export class AIProviderManager {
     messages: AIMessage[],
     taskType: string = "chat"
   ): Promise<AIResponse> {
-    const providers = await this.getActiveProviders();
-    
+    let providers: ProviderConfig[] = [];
+    try {
+      providers = await this.getActiveProviders();
+    } catch (error) {
+      // A partially migrated database must not take JueJue offline.
+      console.warn("[AI] Provider metadata unavailable; using environment fallback.", error);
+    }
+
     if (providers.length === 0) {
       // Fallback to environment variables if no DB config
       return this.chatWithEnv(userId, messages);
@@ -82,8 +137,12 @@ export class AIProviderManager {
   /**
    * Call specific provider API
    */
-  private async callProvider(provider: any, messages: AIMessage[]): Promise<AIResponse> {
+  private async callProvider(provider: ProviderConfig, messages: AIMessage[]): Promise<AIResponse> {
     const { name, apiKey, model } = provider;
+
+    if (!apiKey) {
+      throw new Error(`Missing server configuration for ${name}`);
+    }
 
     if (name === "openai" || name === "openrouter") {
       const baseURL = name === "openrouter" ? "https://openrouter.ai/api/v1" : undefined;
@@ -108,9 +167,10 @@ export class AIProviderManager {
     }
 
     if (name === "gemini") {
-      // Simple fetch implementation for Gemini to avoid extra heavy dependencies
+      // Gemini REST path requires models/{model}; normalize old settings first.
+      const geminiModel = normalizeGeminiModel(model);
       const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
+        `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent?key=${apiKey}`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -135,8 +195,8 @@ export class AIProviderManager {
       return {
         message: text,
         provider: "gemini",
-        model,
-      };
+        model: geminiModel,
+        };
     }
 
     throw new Error(`Unsupported AI provider: ${name}`);
@@ -147,9 +207,9 @@ export class AIProviderManager {
    */
   private async chatWithEnv(userId: number, messages: AIMessage[]): Promise<AIResponse> {
     const providers = [
-      { name: "openrouter", apiKey: process.env.OPENROUTER_API_KEY, model: process.env.OPENROUTER_MODEL || "google/gemini-flash-1.5" },
+      { name: "openrouter", apiKey: process.env.OPENROUTER_API_KEY, model: process.env.OPENROUTER_MODEL || "google/gemini-2.5-flash-lite" },
       { name: "openai", apiKey: process.env.OPENAI_API_KEY, model: process.env.OPENAI_MODEL || "gpt-4o-mini" },
-      { name: "gemini", apiKey: process.env.GEMINI_API_KEY, model: process.env.GEMINI_MODEL || "gemini-1.5-flash" }
+      { name: "gemini", apiKey: process.env.GEMINI_API_KEY, model: normalizeGeminiModel(process.env.GEMINI_MODEL) }
     ].filter(p => !!p.apiKey);
 
     if (providers.length === 0) {
