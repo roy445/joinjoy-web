@@ -1,5 +1,8 @@
+"use client";
+
 import Link from "next/link";
-import { MapPin, Users, Calendar } from "lucide-react";
+import { useEffect, useState } from "react";
+import { MapPin, Users, Calendar, Clock } from "lucide-react";
 import { formatDate, eventStatusLabel } from "@/lib/utils";
 
 export type EventCardData = {
@@ -27,8 +30,33 @@ const statusStyle: Record<string, string> = {
   cancelled: "bg-rose-500/10 text-rose-500",
 };
 
+function getCountdown(eventDate: string, startTime?: string) {
+  const target = new Date(`${eventDate}T${startTime || "00:00"}`).getTime();
+  const diff = target - Date.now();
+  if (!Number.isFinite(target) || diff <= 0) return null;
+  const minutes = Math.floor(diff / 60000);
+  const days = Math.floor(minutes / 1440);
+  const hours = Math.floor((minutes % 1440) / 60);
+  if (days > 0) return `${days} 天後開始`;
+  if (hours > 0) return `${hours} 小時後開始`;
+  return `${Math.max(1, minutes)} 分鐘後開始`;
+}
+
 export function EventCard({ event }: { event: EventCardData }) {
   const remaining = event.remaining ?? Math.max(0, event.capacity - event.participantCount);
+  const [countdown, setCountdown] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (event.status !== "upcoming") return;
+    const update = () => setCountdown(getCountdown(event.eventDate, event.startTime));
+    update();
+    const timer = window.setInterval(update, 60000);
+    return () => window.clearInterval(timer);
+  }, [event.eventDate, event.startTime, event.status]);
+
+  const isAlmostFull = remaining > 0 && remaining <= Math.max(3, Math.ceil(event.capacity * 0.2));
+  const isFull = remaining <= 0;
+
   return (
     <Link
       href={`/events/${event.id}`}
@@ -67,9 +95,14 @@ export function EventCard({ event }: { event: EventCardData }) {
             <MapPin size={13} /> {event.region ? `${event.region} · ` : ""}{event.meetingLocation}
           </span>
         </div>
+        {countdown && (
+          <span className="flex items-center gap-1.5 text-xs font-semibold text-coral-600">
+            <Clock size={13} /> {countdown}
+          </span>
+        )}
         <div className="mt-2 flex items-center justify-between border-t border-[var(--color-border)] pt-2.5">
-          <span className="flex items-center gap-1.5 text-xs font-semibold text-brand-600">
-            <Users size={13} /> {event.participantCount} 人參加 · 剩 {remaining} 位
+          <span className={`flex items-center gap-1.5 text-xs font-semibold ${isFull ? "text-soft" : isAlmostFull ? "text-coral-600" : "text-brand-600"}`}>
+            <Users size={13} /> {isFull ? "已額滿" : `${event.participantCount} 人參加 · 剩 ${remaining} 位`}
           </span>
           <span className="text-sm font-bold text-coral-500">{Number(event.fee) > 0 ? `$${event.fee}` : "免費"}</span>
         </div>
