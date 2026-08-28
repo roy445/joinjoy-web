@@ -46,7 +46,7 @@ export default function NotificationsPage() {
               <span className="text-2xl">{ICONS[n.type] || "🔔"}</span>
               <div className="min-w-0 flex-1">
                 <p className="font-semibold text-main">{n.title}</p>
-                <p className="truncate text-sm text-soft">{n.content}</p>
+                <p className="line-clamp-2 text-xs leading-relaxed text-soft">{n.content}</p>
                 <p className="mt-1 text-xs text-soft">{timeAgo(n.createdAt)}</p>
               </div>
               {!n.isRead && <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-coral-500" />}

@@ -114,8 +114,8 @@ export function NotificationBell({ loggedIn }: { loggedIn: boolean }) {
                 >
                   <span className="text-lg">{ICONS[n.type] || "🔔"}</span>
                   <div className="min-w-0 flex-1">
-                    <p className="truncate font-semibold text-main">{n.title}</p>
-                    <p className="truncate text-xs text-soft">{n.content}</p>
+                    <p className="truncate text-sm font-semibold text-main">{n.title}</p>
+                    <p className="line-clamp-2 text-xs leading-relaxed text-soft">{n.content}</p>
                     <p className="mt-0.5 text-[10px] text-soft">{timeAgo(n.createdAt)}</p>
                   </div>
                   {!n.isRead && <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-coral-500" />}

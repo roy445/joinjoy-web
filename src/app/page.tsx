@@ -8,7 +8,8 @@ import { SearchBar } from "@/components/search-bar";
 import { SectionTitle, EmptyState } from "@/components/ui";
 import { EventCard } from "@/components/event-card";
 import { RecommendedSection } from "@/components/recommended-section";
-import { ArrowUpRight, Megaphone } from "lucide-react";
+import { SiteAnnouncementBanner } from "@/components/site-announcement-banner";
+import { ArrowUpRight } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -111,13 +112,7 @@ export default async function HomePage({
 
   return (
     <div className="mx-auto flex max-w-7xl flex-col gap-10 px-4 py-6 md:px-8 md:py-8">
-      {announcement && (
-        <div className="animate-fade-up flex items-center gap-3 rounded-2xl bg-gradient-to-r from-brand-500/10 to-coral-500/10 px-4 py-3 text-sm">
-          <Megaphone size={18} className="shrink-0 text-brand-600" />
-          <span className="font-semibold text-main">{announcement.title}</span>
-          <span className="truncate text-soft">{announcement.content}</span>
-        </div>
-      )}
+      {announcement && <SiteAnnouncementBanner title={announcement.title} content={announcement.content} />}
 
       {/* Hero */}
       <section className="animate-fade-up relative overflow-hidden rounded-[32px] bg-gradient-to-br from-brand-50 via-cream-50 to-coral-50 p-6 dark:from-[#152420] dark:via-[#151b1d] dark:to-[#241a18] md:p-10">

@@ -243,6 +243,10 @@ a, button {
 .hide-scrollbar::-webkit-scrollbar { display: none; }
 .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
+.announcement-scroll::-webkit-scrollbar { height: 4px; }
+.announcement-scroll::-webkit-scrollbar-thumb { background: var(--color-brand-200); border-radius: 999px; }
+.announcement-scroll { scrollbar-width: thin; scrollbar-color: var(--color-brand-200) transparent; }
+
 .aurora-bg {
   background: linear-gradient(120deg, var(--color-brand-50), var(--color-cream-50), var(--color-coral-50), var(--color-brand-100));
   background-size: 300% 300%;
