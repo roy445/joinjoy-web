@@ -247,7 +247,7 @@ function JoinPanel({ event, me, myParticipation, remaining, showToast, reload }:
   if (myParticipation && ["approved", "pending", "waitlist"].includes(myParticipation.status)) {
     const statusLabel: Record<string, string> = { approved: "✅ 已確定報名", pending: "⏳ 審核中", waitlist: "🕐 候補中" };
     return (
-      <div className="card-surface mt-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl p-4">
+      <div className="card-surface sticky bottom-3 z-30 mt-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl p-4 shadow-xl md:static md:shadow-none">
         <p className="text-sm font-bold text-brand-600">{statusLabel[myParticipation.status]}</p>
         <button onClick={leave} className="rounded-full border border-rose-300 px-5 py-2 text-sm font-bold text-rose-500">退出活動</button>
       </div>
@@ -257,7 +257,7 @@ function JoinPanel({ event, me, myParticipation, remaining, showToast, reload }:
   if (event.status === "cancelled" || event.status === "completed") return null;
 
   return (
-    <div className="card-surface mt-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl p-4">
+    <div className="card-surface sticky bottom-3 z-30 mt-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl p-4 shadow-xl md:static md:shadow-none">
       <div>
         <p className="text-sm font-bold text-main">{remaining > 0 ? `剩餘 ${remaining} 個名額` : event.allowWaitlist ? "名額已滿，可加入候補" : "名額已滿"}</p>
         <p className="text-xs text-soft">費用：{Number(event.fee) > 0 ? `$${event.fee}` : "免費"} · {genderLimitLabel(event.genderLimit)}</p>
@@ -327,7 +327,7 @@ function InfoTab({ event, isOwner, isAdmin, showToast, reload }: any) {
   const [showCancelModal, setShowCancelModal] = useState(false);
 
   async function deleteEvent() {
-    if (!confirm("確定要永久刪除這個活動嗎？此操作無法復原。")) return;    if (!confirm("確定要永久刪除這個活動嗎？此操作無法復原。")) return;
+    if (!confirm("確定要永久刪除這個活動嗎？此操作無法復原。")) return;
     const res = await fetch(`/api/events/${event.id}`, { method: "DELETE" });
     if (res.ok) window.location.href = "/my-events";
   }
