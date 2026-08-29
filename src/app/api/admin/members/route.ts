@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
-import { users } from "@/db/schema";
-import { eq, desc, ilike, or } from "drizzle-orm";
+import { userGroupMembers, userGroups, users } from "@/db/schema";
+import { eq, desc, ilike, or, isNull } from "drizzle-orm";
 import { requireAdmin } from "@/lib/auth";
 import { errorResponse, logAdminAction } from "@/lib/api";
 import { notify } from "@/lib/notify";
@@ -16,7 +16,50 @@ export async function GET(req: NextRequest) {
       .from(users)
       .where(q ? or(ilike(users.name, `%${q}%`), ilike(users.email, `%${q}%`)) : undefined)
       .orderBy(desc(users.createdAt));
-    return NextResponse.json({ members: rows });
+
+    // Identity tables were added after the original member page. Keep the
+    // member list usable while an older production database is being migrated.
+    let membershipRows: Array<{
+      userId: number;
+      membershipId: number;
+      groupId: number;
+      groupName: string | null;
+      groupIcon: string | null;
+      groupColor: string | null;
+      groupEffect: string | null;
+      expiresAt: Date | null;
+    }> = [];
+    try {
+      membershipRows = await db
+        .select({
+          userId: userGroupMembers.userId,
+          membershipId: userGroupMembers.id,
+          groupId: userGroups.id,
+          groupName: userGroups.name,
+          groupIcon: userGroups.icon,
+          groupColor: userGroups.color,
+          groupEffect: userGroups.effect,
+          expiresAt: userGroupMembers.expiresAt,
+        })
+        .from(userGroupMembers)
+        .innerJoin(userGroups, eq(userGroupMembers.groupId, userGroups.id))
+        .where(isNull(userGroupMembers.revokedAt));
+    } catch (groupError) {
+      console.warn("Identity tables are not available yet; returning members without groups", groupError);
+    }
+
+    const now = Date.now();
+    const groupsByUser = new Map<number, typeof membershipRows>();
+    for (const membership of membershipRows) {
+      if (membership.expiresAt && membership.expiresAt.getTime() <= now) continue;
+      const current = groupsByUser.get(membership.userId) ?? [];
+      current.push(membership);
+      groupsByUser.set(membership.userId, current);
+    }
+
+    return NextResponse.json({
+      members: rows.map((member) => ({ ...member, groups: groupsByUser.get(member.id) ?? [] })),
+    });
   } catch (err) {
     return errorResponse(err);
   }

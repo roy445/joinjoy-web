@@ -8,4 +8,9 @@ export type ClientUser = {
   canCreateEvent: boolean;
   creditScore: string;
   isBlacklisted: boolean;
+  jCoins: number;
+  aiTitles: string[] | null;
+  activeTitle: string | null;
+  activeBadge: string | null;
+  activeAvatarFrame: string | null;
 };

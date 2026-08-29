@@ -29,6 +29,7 @@
   --color-cream-50: #fefdfb;
   --color-cream-100: #faf7f0;
   --color-cream-200: #f3ede1;
+  --color-gold-main: #bf953f;
 
   --animate-fade-up: fade-up 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
   --animate-fade-in: fade-in 0.4s ease both;
@@ -102,6 +103,74 @@
     from { opacity: 1; transform: scale(1); filter: blur(0px); }
     to { opacity: 0; transform: scale(1.12); filter: blur(10px); }
   }
+  @keyframes particle-float {
+    0%, 100% { transform: translate(0, 0); opacity: 0; }
+    20% { opacity: 1; }
+    80% { opacity: 1; }
+    100% { transform: translate(var(--x), var(--y)); opacity: 0; }
+  }
+  @keyframes beta-pulse {
+    0%, 100% { transform: scale(1); filter: brightness(1); }
+    50% { transform: scale(1.05); filter: brightness(1.2) drop-shadow(0 0 8px rgba(255, 255, 255, 0.6)); }
+  }
+  @keyframes gold-glow {
+    0%, 100% { text-shadow: 0 0 4px rgba(255, 215, 0, 0.5), 0 0 8px rgba(255, 215, 0, 0.3); }
+    50% { text-shadow: 0 0 12px rgba(255, 215, 0, 0.8), 0 0 20px rgba(255, 215, 0, 0.5); }
+  }
+  @keyframes gold-shine {
+    0% { background-position: -200% center; }
+    100% { background-position: 200% center; }
+  }
+  @keyframes pulse-subtle {
+    0%, 100% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.05); opacity: 0.9; }
+  }
+  @keyframes title-float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-2px); }
+  }
+}
+
+.animate-gold-glow {
+  animation: gold-glow 2s ease-in-out infinite;
+  background: linear-gradient(to right, #bf953f, #fcf6ba, #b38728, #fcf6ba, #bf953f);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  font-weight: bold;
+}
+
+.animate-gold-shine {
+  background: linear-gradient(
+    90deg, 
+    #b8860b 0%, 
+    #daa520 25%, 
+    #fff8dc 50%, 
+    #daa520 75%, 
+    #b8860b 100%
+  );
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: gold-shine 3s linear infinite;
+  font-weight: 800;
+  text-shadow: 0 0 2px rgba(184, 134, 11, 0.2);
+}
+
+.animate-pulse-subtle {
+  animation: pulse-subtle 2s ease-in-out infinite;
+}
+
+
+.title-badge-glow {
+  box-shadow: 0 0 8px rgba(var(--brand-500-rgb), 0.4);
+}
+
+.animate-particle {
+  animation: particle-float 2s ease-out infinite;
+}
+
+.animate-beta-pulse {
+  animation: beta-pulse 2s ease-in-out infinite;
 }
 
 :root {
@@ -251,3 +320,23 @@ a, button {
   background: linear-gradient(120deg, #10161a, #152420, #241a18, #10161a);
   background-size: 300% 300%;
 }
+
+
+/* City Explorer planner */
+.planner-input {
+  display: block;
+  width: 100%;
+  margin-top: 0.45rem;
+  border: 1px solid var(--color-border);
+  border-radius: 1rem;
+  background: var(--color-surface);
+  padding: 0.85rem 1rem;
+  color: var(--color-text);
+  outline: none;
+  transition: all 0.2s ease;
+}
+.planner-input:focus {
+  border-color: var(--color-brand-400);
+  box-shadow: 0 0 0 4px rgba(51, 153, 144, 0.1);
+}
+.planner-input::placeholder { color: var(--color-text-soft); opacity: 0.6; }

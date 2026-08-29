@@ -35,6 +35,16 @@ export const users = pgTable("users", {
   creditScore: numeric("credit_score", { precision: 6, scale: 2 }).notNull().default("100"),
   isBlacklisted: boolean("is_blacklisted").notNull().default(false),
   noShowCount: integer("no_show_count").notNull().default(0),
+  // ---------- Gamification ----------
+  jCoins: integer("j_coins").notNull().default(0),
+  aiTitles: jsonb("ai_titles").$type<string[]>().default([]),
+  activeTitle: varchar("active_title", { length: 100 }),
+  activeBadge: varchar("active_badge", { length: 100 }),
+  activeAvatarFrame: varchar("active_avatar_frame", { length: 100 }),
+  activityStats: jsonb("activity_stats").$type<Record<string, number>>().default({}),
+  // ---------- AI Usage ----------
+  aiUsageLimit: integer("ai_usage_limit"), // Custom limit, null means use group default
+  lastNotificationSeenAt: timestamp("last_notification_seen_at"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
@@ -151,6 +161,8 @@ export const events = pgTable(
     allowPlusOne: boolean("allow_plus_one").notNull().default(false),
     isPrivate: boolean("is_private").notNull().default(false),
     tags: jsonb("tags").$type<string[]>().default([]),
+    aiItinerary: jsonb("ai_itinerary").$type<any>().default(null),
+    isAiPlanned: boolean("is_ai_planned").default(false).notNull(),
     status: varchar("status", { length: 20 }).notNull().default("upcoming"), // upcoming|ongoing|completed|cancelled
     cancelReason: text("cancel_reason"),
     hostId: integer("host_id").notNull().references(() => users.id),
@@ -318,6 +330,29 @@ export const blacklist = pgTable("blacklist", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
+// ---------- Shop Items ----------
+export const shopItems = pgTable("shop_items", {
+  id: serial("id").primaryKey(),
+  name: varchar("name", { length: 100 }).notNull(),
+  type: varchar("type", { length: 50 }).notNull(), // title | badge | frame | effect
+  price: integer("price").notNull(),
+  description: text("description"),
+  imageUrl: text("image_url"),
+  rarity: varchar("rarity", { length: 20 }).notNull().default("common"), // common | rare | epic | legendary
+  metadata: jsonb("metadata").$type<any>().default({}), // For special styles/effects
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// ---------- User Inventory (Purchased items) ----------
+export const userInventory = pgTable("user_inventory", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  itemId: integer("item_id").notNull().references(() => shopItems.id, { onDelete: "cascade" }),
+  isEquipped: boolean("is_equipped").notNull().default(false),
+  purchasedAt: timestamp("purchased_at").notNull().defaultNow(),
+});
+
 // ---------- Ratings / credit reviews ----------
 export const ratings = pgTable("ratings", {
   id: serial("id").primaryKey(),
@@ -362,5 +397,122 @@ export const adminLogs = pgTable("admin_logs", {
   targetType: varchar("target_type", { length: 40 }),
   targetId: integer("target_id"),
   detail: text("detail"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// ---------- AI Config & Usage ----------
+
+export const aiProviders = pgTable("ai_providers", {
+  id: serial("id").primaryKey(),
+  name: varchar("name", { length: 50 }).notNull().unique(), // openai | gemini | openrouter
+  apiKey: text("api_key").notNull(),
+  model: varchar("model", { length: 100 }).notNull(),
+  priority: integer("priority").notNull().default(0),
+  isActive: boolean("is_active").notNull().default(true),
+  config: jsonb("config").$type<any>().default({}),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const aiUsageLogs = pgTable("ai_usage_logs", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  provider: varchar("provider", { length: 50 }).notNull(),
+  model: varchar("model", { length: 100 }).notNull(),
+  promptTokens: integer("prompt_tokens"),
+  completionTokens: integer("completion_tokens"),
+  latencyMs: integer("latency_ms"),
+  status: varchar("status", { length: 20 }).notNull(), // success | error
+  error: text("error"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const userAiDailyUsage = pgTable("user_ai_daily_usage", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  date: varchar("date", { length: 10 }).notNull(), // YYYY-MM-DD
+  count: integer("count").notNull().default(0),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (table) => ({
+  userDateIdx: index("user_ai_daily_usage_user_date_idx").on(table.userId, table.date),
+}));
+
+	// ---------- User Groups (Identities) ----------
+	
+	export const userGroups = pgTable("user_groups", {
+	  id: serial("id").primaryKey(),
+	  name: varchar("name", { length: 100 }).notNull().unique(),
+	  icon: varchar("icon", { length: 50 }),
+	  color: varchar("color", { length: 20 }),
+	  effect: varchar("effect", { length: 50 }), // CSS class or effect name
+	  description: text("description"),
+	  dailyAiLimit: integer("daily_ai_limit").notNull().default(50),
+	  jCoinBonus: integer("j_coin_bonus").notNull().default(0), // Percentage bonus
+	  maxBonusCap: integer("max_bonus_cap").notNull().default(100), // Max percentage cap
+	  isActive: boolean("is_active").notNull().default(true),
+	  metadata: jsonb("metadata").$type<any>().default({}),
+	  createdAt: timestamp("created_at").notNull().defaultNow(),
+	});
+	
+	export const userGroupMembers = pgTable("user_group_members", {
+	  id: serial("id").primaryKey(),
+	  userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+	  groupId: integer("group_id").notNull().references(() => userGroups.id, { onDelete: "cascade" }),
+	  assignedBy: integer("assigned_by").references(() => users.id),
+	  assignedReason: text("assigned_reason"),
+	  expiresAt: timestamp("expires_at"),
+	  revokedAt: timestamp("revoked_at"),
+	  revokedBy: integer("revoked_by").references(() => users.id),
+	  revocationReason: text("revocation_reason"),
+	  createdAt: timestamp("created_at").notNull().defaultNow(),
+	});
+
+	// ---------- J-Coin Transactions (Audit Log) ----------
+
+	export const jCoinTransactions = pgTable("j_coin_transactions", {
+	  id: serial("id").primaryKey(),
+	  userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+	  amount: integer("amount").notNull(),
+	  type: varchar("type", { length: 20 }).notNull(), // earn | spend | admin_adjust
+	  reason: varchar("reason", { length: 255 }).notNull(),
+	  adminId: integer("admin_id").references(() => users.id),
+	  eventId: integer("event_id").references(() => events.id),
+	  metadata: jsonb("metadata").$type<any>().default({}),
+	  createdAt: timestamp("created_at").notNull().defaultNow(),
+	});
+
+	// ---------- Tasks (Daily/Weekly) ----------
+
+	export const tasks = pgTable("tasks", {
+	  id: serial("id").primaryKey(),
+	  title: varchar("title", { length: 150 }).notNull(),
+	  description: text("description"),
+	  type: varchar("type", { length: 20 }).notNull(), // daily | weekly | achievement
+	  rewardJCoins: integer("reward_j_coins").notNull().default(0),
+	  requirementType: varchar("requirement_type", { length: 50 }).notNull(), // host_event | join_event | comment
+	  requirementCount: integer("requirement_count").notNull().default(1),
+	  isActive: boolean("is_active").notNull().default(true),
+	  createdAt: timestamp("created_at").notNull().defaultNow(),
+	});
+
+	export const userTaskProgress = pgTable("user_task_progress", {
+	  id: serial("id").primaryKey(),
+	  userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+	  taskId: integer("task_id").notNull().references(() => tasks.id, { onDelete: "cascade" }),
+	  currentCount: integer("current_count").notNull().default(0),
+	  completed: boolean("completed").notNull().default(false),
+	  completedAt: timestamp("completed_at"),
+	  lastUpdatedAt: timestamp("last_updated_at").notNull().defaultNow(),
+	});
+
+// ---------- Honor Notifications ----------
+
+export const honorNotifications = pgTable("honor_notifications", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  type: varchar("type", { length: 50 }).notNull(), // group | title | badge
+  targetId: varchar("target_id", { length: 100 }).notNull(),
+  title: varchar("title", { length: 150 }).notNull(),
+  content: text("content"),
+  isSeen: boolean("is_seen").notNull().default(false),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });

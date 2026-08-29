@@ -5,9 +5,12 @@ import Link from "next/link";
 import {
   MapPin, Users, Calendar, Clock, Share2, Heart, Flag, MessageCircle,
   Send, ImagePlus, Megaphone, BarChart3, ShieldAlert, Loader2, Check, X, Copy,
+  ArrowUpRight, Sparkles,
 } from "lucide-react";
+import { JCoin } from "@/components/j-coin";
 import { formatDate, eventStatusLabel, genderLimitLabel, timeAgo } from "@/lib/utils";
 import { Badge, CreditBadge, BlacklistBadge, EmptyState } from "@/components/ui";
+import { UserHonor } from "@/components/user-honor";
 import { REPORT_REASONS } from "@/lib/constants";
 import { ShareModal } from "@/components/share-modal";
 
@@ -78,8 +81,21 @@ export function EventDetailClient({ id }: { id: string }) {
           <img src={host.avatarUrl || `https://api.dicebear.com/9.x/notionists/svg?seed=${host.id}`} alt="" className="h-12 w-12 rounded-full object-cover" />
           <div className="min-w-0 flex-1">
             <p className="text-xs text-soft">揪主</p>
-            <p className="truncate font-bold text-main">{host.name}</p>
-            <div className="mt-0.5"><CreditBadge score={host.creditScore} /></div>
+            <UserHonor
+              name={host.name}
+              role={host.role}
+              activeTitle={host.activeTitle}
+              activeBadge={host.activeBadge}
+              isHost={true}
+              nameClassName="text-sm"
+            />
+            <div className="mt-0.5 flex items-center gap-2">
+              <CreditBadge score={host.creditScore} />
+              <div className="flex items-center gap-1 text-[10px] font-bold text-amber-600 dark:text-amber-400">
+                <JCoin size={12} />
+                {host.jCoins || 0}
+              </div>
+            </div>
           </div>
         </Link>
         <InfoTile icon={<Calendar size={16} />} label="日期時間" value={`${formatDate(event.eventDate)} ${event.startTime}${event.endTime ? ` - ${event.endTime}` : ""}`} />
@@ -247,7 +263,7 @@ function JoinPanel({ event, me, myParticipation, remaining, showToast, reload }:
   if (myParticipation && ["approved", "pending", "waitlist"].includes(myParticipation.status)) {
     const statusLabel: Record<string, string> = { approved: "✅ 已確定報名", pending: "⏳ 審核中", waitlist: "🕐 候補中" };
     return (
-      <div className="card-surface mt-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl p-4">
+      <div className="card-surface sticky bottom-3 z-30 mt-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl p-4 shadow-xl md:static md:shadow-none">
         <p className="text-sm font-bold text-brand-600">{statusLabel[myParticipation.status]}</p>
         <button onClick={leave} className="rounded-full border border-rose-300 px-5 py-2 text-sm font-bold text-rose-500">退出活動</button>
       </div>
@@ -257,7 +273,7 @@ function JoinPanel({ event, me, myParticipation, remaining, showToast, reload }:
   if (event.status === "cancelled" || event.status === "completed") return null;
 
   return (
-    <div className="card-surface mt-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl p-4">
+    <div className="card-surface sticky bottom-3 z-30 mt-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl p-4 shadow-xl md:static md:shadow-none">
       <div>
         <p className="text-sm font-bold text-main">{remaining > 0 ? `剩餘 ${remaining} 個名額` : event.allowWaitlist ? "名額已滿，可加入候補" : "名額已滿"}</p>
         <p className="text-xs text-soft">費用：{Number(event.fee) > 0 ? `$${event.fee}` : "免費"} · {genderLimitLabel(event.genderLimit)}</p>
@@ -327,7 +343,7 @@ function InfoTab({ event, isOwner, isAdmin, showToast, reload }: any) {
   const [showCancelModal, setShowCancelModal] = useState(false);
 
   async function deleteEvent() {
-    if (!confirm("確定要永久刪除這個活動嗎？此操作無法復原。")) return;    if (!confirm("確定要永久刪除這個活動嗎？此操作無法復原。")) return;
+    if (!confirm("確定要永久刪除這個活動嗎？此操作無法復原。")) return;
     const res = await fetch(`/api/events/${event.id}`, { method: "DELETE" });
     if (res.ok) window.location.href = "/my-events";
   }
@@ -348,6 +364,56 @@ function InfoTab({ event, isOwner, isAdmin, showToast, reload }: any) {
         <h3 className="mb-2 font-display font-bold text-main">活動介紹</h3>
         <p className="whitespace-pre-line text-sm leading-relaxed text-soft">{event.description}</p>
       </div>
+
+      {event.aiItinerary && (
+        <div className="rounded-3xl border border-brand-500/20 bg-brand-50/30 p-5 md:p-6">
+          <div className="mb-4 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-brand-500 text-white shadow-lg shadow-brand-500/20">
+                <Sparkles size={18} />
+              </div>
+              <div>
+                <h3 className="font-display text-lg font-bold text-main">AI 行程專區</h3>
+                <p className="text-[10px] font-bold uppercase tracking-widest text-brand-500">AI PLANNED ITINERARY</p>
+              </div>
+            </div>
+            {event.isAiPlanned && (
+              <span className="rounded-full bg-brand-500/10 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-brand-600">
+                Verified Plan
+              </span>
+            )}
+          </div>
+
+          <div className="relative space-y-6 border-l-2 border-brand-200/60 pl-6 ml-3">
+            {event.aiItinerary.stops?.map((stop: any, i: number) => (
+              <div key={i} className="relative">
+                <div className="absolute -left-[33px] top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-white ring-2 ring-brand-500">
+                  <div className="h-1.5 w-1.5 rounded-full bg-brand-500" />
+                </div>
+                <div className="flex flex-wrap items-baseline justify-between gap-2">
+                  <h4 className="text-sm font-black text-brand-600">{stop.time}｜{stop.place?.name || stop.title}</h4>
+                  <span className="text-[10px] font-bold text-soft">${stop.cost}</span>
+                </div>
+                <p className="mt-1 text-sm text-soft leading-relaxed">{stop.place?.address || stop.detail}</p>
+                {stop.place?.address && (
+                  <a 
+                    href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${stop.place.name} ${stop.place.address}`)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-2 inline-flex items-center gap-1 text-[10px] font-bold text-brand-500 hover:underline"
+                  >
+                    在地圖中查看 <ArrowUpRight size={10} />
+                  </a>
+                )}
+              </div>
+            ))}
+          </div>
+          
+          <div className="mt-6 rounded-2xl bg-white/60 p-3 text-[10px] text-soft leading-relaxed">
+            <p>💡 <b>揪主小叮嚀：</b>此行程由 AI 輔助規劃，建議報名前先與揪主確認實際集合細節。祝你有個愉快的探索旅程！</p>
+          </div>
+        </div>
+      )}
 
       {event.images && event.images.length > 0 && (
         <div className="grid grid-cols-2 gap-2 md:grid-cols-3">
@@ -505,8 +571,20 @@ function ParticipantsTab({ event, participants, waitlist, pending, isOwner, me, 
                 <Link href={`/profile/${p.userId}`} className="flex items-center gap-2">
                   <img src={p.avatarUrl || `https://api.dicebear.com/9.x/notionists/svg?seed=${p.userId}`} className="h-9 w-9 rounded-full object-cover" alt="" />
                   <div>
-                    <span className="flex items-center gap-1.5 text-sm font-semibold text-main">{p.name} {p.plusOneCount > 0 && <span className="text-xs text-soft">+{p.plusOneCount}</span>}</span>
-                    {p.isBlacklisted && <BlacklistBadge />}
+                    <UserHonor
+                      name={p.name}
+                      role={p.role}
+                      activeTitle={p.activeTitle}
+                      activeBadge={p.activeBadge}
+                      nameClassName="text-sm"
+                    />
+                    <div className="mt-0.5 flex items-center gap-2">
+                      {p.isBlacklisted && <BlacklistBadge />}
+                      <div className="flex items-center gap-0.5 text-[10px] font-bold text-amber-600">
+                        <JCoin size={10} />
+                        {p.jCoins || 0}
+                      </div>
+                    </div>
                   </div>
                 </Link>
                 <div className="flex items-center gap-1.5">
