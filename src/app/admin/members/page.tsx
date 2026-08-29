@@ -76,7 +76,8 @@ export default function AdminMembersPage() {
       const response = await fetch("/api/admin/groups", { cache: "no-store" });
       const data = await response.json().catch(() => null);
       if (!response.ok) throw new Error(data?.error || "無法載入身份組");
-      setGroups(Array.isArray(data) ? data.filter((group: Group) => group.isActive) : []);
+      const availableGroups = Array.isArray(data) ? data : data?.groups;
+      setGroups(Array.isArray(availableGroups) ? availableGroups.filter((group: Group) => group.isActive) : []);
     } catch (err) {
       setPageError(err instanceof Error ? err.message : "無法載入身份組");
     } finally {
@@ -257,8 +258,8 @@ export default function AdminMembersPage() {
 
               <label className="mt-6 block text-sm font-black text-main">
                 選擇身份組
-                <select value={selectedGroupId} onChange={(event) => setSelectedGroupId(event.target.value)} disabled={groupsLoading} className="mt-2 w-full rounded-xl border-2 border-brand-100 bg-app-soft px-3 py-3 font-bold text-main outline-none focus:border-brand-500" required>
-                  <option value="">{groupsLoading ? "載入身份組中…" : "請選擇啟用中的身份組"}</option>
+                <select value={selectedGroupId} onChange={(event) => setSelectedGroupId(event.target.value)} disabled={groupsLoading || groups.length === 0} className="mt-2 w-full rounded-xl border-2 border-brand-100 bg-app-soft px-3 py-3 font-bold text-main outline-none focus:border-brand-500" required>
+                  <option value="">{groupsLoading ? "載入身份組中…" : groups.length > 0 ? "請選擇身份組" : "尚無啟用中的身份組，請先到身份組管理建立"}</option>
                   {groups.map((group) => (
                     <option key={group.id} value={group.id}>{group.icon || "✦"} {group.name} · AI {group.dailyAiLimit}/日 · J 幣 +{group.jCoinBonus}%</option>
                   ))}

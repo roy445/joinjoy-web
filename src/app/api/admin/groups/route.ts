@@ -12,11 +12,22 @@ const MAX_BONUS_PERCENT = 100;
 class InputError extends Error {}
 
 function isMissingSchemaError(error: unknown) {
-  const code = typeof error === "object" && error !== null && "code" in error
-    ? String((error as { code?: unknown }).code)
-    : "";
-  const message = error instanceof Error ? error.message : String(error);
-  return code === "42P01" || code === "42703" || /relation .* does not exist|column .* does not exist/i.test(message);
+  const messages: string[] = [];
+  let current: unknown = error;
+  let depth = 0;
+  while (current && depth < 4) {
+    if (current instanceof Error) messages.push(current.message);
+    else if (typeof current === "string") messages.push(current);
+    if (typeof current === "object" && current !== null) {
+      const record = current as { code?: unknown; cause?: unknown; originalError?: unknown };
+      if (record.code === "42P01" || record.code === "42703") return true;
+      current = record.cause ?? record.originalError;
+    } else {
+      break;
+    }
+    depth += 1;
+  }
+  return /relation .* does not exist|column .* does not exist|table .* does not exist|undefined table|undefined column/i.test(messages.join(" "));
 }
 
 function schemaUnavailableResponse() {

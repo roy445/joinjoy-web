@@ -25,7 +25,7 @@ type ProviderConfig = {
   apiKey?: string;
 };
 
-const DEFAULT_GEMINI_MODEL = "gemini-2.5-flash-lite";
+const DEFAULT_GEMINI_MODEL = "gemini-3.5-flash-lite";
 
 function normalizeGeminiModel(model: string | undefined): string {
   const normalized = (model || DEFAULT_GEMINI_MODEL).trim().replace(/^models\//, "");
@@ -36,7 +36,10 @@ function normalizeGeminiModel(model: string | undefined): string {
     return DEFAULT_GEMINI_MODEL;
   }
   if (normalized === "gemini-2.0-flash" || normalized.startsWith("gemini-2.0-flash-")) {
-    return "gemini-2.5-flash";
+    return DEFAULT_GEMINI_MODEL;
+  }
+  if (normalized === "gemini-2.5-flash-lite") {
+    return DEFAULT_GEMINI_MODEL;
   }
 
   return normalized;
@@ -207,7 +210,7 @@ export class AIProviderManager {
    */
   private async chatWithEnv(userId: number, messages: AIMessage[]): Promise<AIResponse> {
     const providers = [
-      { name: "openrouter", apiKey: process.env.OPENROUTER_API_KEY, model: process.env.OPENROUTER_MODEL || "google/gemini-2.5-flash-lite" },
+      { name: "openrouter", apiKey: process.env.OPENROUTER_API_KEY, model: process.env.OPENROUTER_MODEL || "google/gemini-3.5-flash-lite" },
       { name: "openai", apiKey: process.env.OPENAI_API_KEY, model: process.env.OPENAI_MODEL || "gpt-4o-mini" },
       { name: "gemini", apiKey: process.env.GEMINI_API_KEY, model: normalizeGeminiModel(process.env.GEMINI_MODEL) }
     ].filter(p => !!p.apiKey);

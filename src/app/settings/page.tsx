@@ -6,7 +6,7 @@ import { SectionTitle, Badge } from "@/components/ui";
 import { AppealModal } from "@/components/appeal-modal";
 import {
   ImagePlus, Loader2, Save, KeyRound, ShieldAlert, ShieldQuestion,
-  Bell, CalendarCheck, Bookmark, PlusCircle, ShieldCheck, Clock,
+  Bell, CalendarCheck, Bookmark, PlusCircle, ShieldCheck, Clock, Check, Copy,
 } from "lucide-react";
 import { EVENT_TAGS } from "@/lib/constants";
 import { timeAgo } from "@/lib/utils";
@@ -24,6 +24,7 @@ export default function SettingsPage() {
   const [pwSaving, setPwSaving] = useState(false);
   const [pwMessage, setPwMessage] = useState("");
   const [pwError, setPwError] = useState("");
+  const [copiedUserId, setCopiedUserId] = useState(false);
 
   function loadUser() {
     fetch("/api/users/me").then((r) => (r.ok ? r.json() : null)).then((d) => {
@@ -79,6 +80,16 @@ export default function SettingsPage() {
       else setMessage(d.error);
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function copyUserId() {
+    try {
+      await navigator.clipboard.writeText(String(user.id));
+      setCopiedUserId(true);
+      window.setTimeout(() => setCopiedUserId(false), 2200);
+    } catch {
+      setMessage(`您的專屬 ID 是 ${user.id}，請手動複製`);
     }
   }
 
@@ -250,7 +261,18 @@ export default function SettingsPage() {
         <div className="flex flex-wrap items-center gap-2 text-sm text-soft">
           <span>Email：{user.email}</span>
         </div>
-        <p className="mt-2 text-sm text-soft">信用分數：{Number(user.creditScore).toFixed(0)}</p>
+        <div className="mt-4 flex flex-col gap-3 rounded-2xl border-2 border-brand-100 bg-brand-50 p-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="text-xs font-black tracking-wide text-brand-700">JOINJOY 專屬 ID</p>
+            <p className="mt-1 text-xl font-black tracking-wider text-brand-900">UID {user.id}</p>
+            <p className="mt-1 text-xs font-bold text-brand-800">提供給管理員查找帳號或接收 J 幣、身份組與禮物。</p>
+          </div>
+          <button type="button" onClick={() => void copyUserId()} className="flex shrink-0 items-center justify-center gap-2 rounded-xl bg-brand-600 px-4 py-2.5 text-sm font-black text-white transition hover:bg-brand-700">
+            {copiedUserId ? <Check size={16} /> : <Copy size={16} />}
+            {copiedUserId ? "已複製" : "複製 ID"}
+          </button>
+        </div>
+        <p className="mt-3 text-sm text-soft">信用分數：{Number(user.creditScore).toFixed(0)}</p>
         <p className="mt-1 text-sm text-soft">建立時間：{new Date(user.createdAt).toLocaleDateString("zh-TW")}</p>
       </div>
 
