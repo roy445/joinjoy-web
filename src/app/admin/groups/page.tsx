@@ -64,6 +64,7 @@ export default function AdminGroupsPage() {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [setupRequired, setSetupRequired] = useState(false);
+  const [repairRequired, setRepairRequired] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [draft, setDraft] = useState<GroupDraft>(emptyDraft);
@@ -76,10 +77,12 @@ export default function AdminGroupsPage() {
       const data = await response.json().catch(() => null);
       if (!response.ok) {
         setSetupRequired(Boolean(data?.setupRequired));
+        setRepairRequired(Boolean(data?.repairRequired));
         throw new Error(data?.error || "無法載入身份組");
       }
       setGroups(Array.isArray(data) ? data : []);
       setSetupRequired(false);
+      setRepairRequired(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : "無法載入身份組");
     } finally {
@@ -226,7 +229,7 @@ export default function AdminGroupsPage() {
 
       {error && <div className="rounded-2xl border-2 border-rose-200 bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700" role="alert">{error}</div>}
       {notice && <div className="rounded-2xl border-2 border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-800" role="status">{notice}</div>}
-      {setupRequired && <div className="rounded-2xl border-2 border-amber-200 bg-amber-50 px-4 py-3 text-sm font-bold text-amber-900" role="alert">請先在同一個正式資料庫執行 <code className="rounded bg-amber-100 px-1.5 py-0.5">drizzle/0002_admin_identity_jcoins.sql</code>，再重新整理本頁。尚未完成遷移前不會建立任何身份組資料。</div>}
+      {setupRequired && <div className="rounded-2xl border-2 border-amber-200 bg-amber-50 px-4 py-3 text-sm font-bold text-amber-900" role="alert">請先在同一個正式資料庫執行 <code className="rounded bg-amber-100 px-1.5 py-0.5">{repairRequired ? "drizzle/0004_repair_admin_identity_schema.sql" : "drizzle/0002_admin_identity_jcoins.sql"}</code>，再重新整理本頁。{repairRequired ? "身份組資料表已存在，但欄位尚未完整同步。" : "尚未完成遷移前不會建立任何身份組資料。"}</div>}
 
       {loading ? (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">

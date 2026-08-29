@@ -11,7 +11,7 @@ const MAX_BONUS_PERCENT = 100;
 
 class InputError extends Error {}
 
-function isMissingSchemaError(error: unknown) {
+function schemaErrorKind(error: unknown): "table" | "column" | null {
   const messages: string[] = [];
   let current: unknown = error;
   let depth = 0;
@@ -20,27 +20,33 @@ function isMissingSchemaError(error: unknown) {
     else if (typeof current === "string") messages.push(current);
     if (typeof current === "object" && current !== null) {
       const record = current as { code?: unknown; cause?: unknown; originalError?: unknown };
-      if (record.code === "42P01" || record.code === "42703") return true;
+      if (record.code === "42P01") return "table";
+      if (record.code === "42703") return "column";
       current = record.cause ?? record.originalError;
     } else {
       break;
     }
     depth += 1;
   }
-  return /relation .* does not exist|column .* does not exist|table .* does not exist|undefined table|undefined column/i.test(messages.join(" "));
+
+  const message = messages.join(" ");
+  if (/relation .* does not exist|table .* does not exist|undefined table/i.test(message)) return "table";
+  if (/column .* does not exist|undefined column/i.test(message)) return "column";
+  return null;
 }
 
-function schemaUnavailableResponse() {
-  return NextResponse.json(
-    { error: "身份組資料表尚未建立，請先套用 drizzle/0002_admin_identity_jcoins.sql。", setupRequired: true },
-    { status: 503 }
-  );
+function schemaUnavailableResponse(kind: "table" | "column") {
+  const error = kind === "column"
+    ? "身份組資料表已存在，但欄位尚未完整同步。請套用 drizzle/0004_repair_admin_identity_schema.sql。"
+    : "身份組資料表尚未建立，請先套用 drizzle/0002_admin_identity_jcoins.sql，再套用 drizzle/0003_default_identity_groups.sql。";
+  return NextResponse.json({ error, setupRequired: true, repairRequired: kind === "column" }, { status: 503 });
 }
 
 function safeAdminError(error: unknown) {
   if (error instanceof AuthError) return errorResponse(error);
   if (error instanceof InputError) return NextResponse.json({ error: error.message }, { status: 400 });
-  if (isMissingSchemaError(error)) return schemaUnavailableResponse();
+  const schemaKind = schemaErrorKind(error);
+  if (schemaKind) return schemaUnavailableResponse(schemaKind);
   console.error("[AdminGroups] request failed", error);
   return NextResponse.json({ error: "身份組操作目前無法完成，請稍後再試。" }, { status: 500 });
 }
