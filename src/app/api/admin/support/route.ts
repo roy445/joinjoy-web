@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { desc, eq } from "drizzle-orm";
+import { count, desc, eq, gt } from "drizzle-orm";
 import { db } from "@/db";
-import { analysisUsageLogs, errorReports, serviceControls, systemAnnouncements } from "@/db/schema";
+import { analysisUsageLogs, errorReports, serviceControls, sessions, systemAnnouncements } from "@/db/schema";
 import { requireAdmin } from "@/lib/auth";
 import { ERROR_CATALOG, getErrorDefinition } from "@/lib/error-codes";
 import { sendSupportMail } from "@/lib/mailer";
@@ -10,13 +10,14 @@ import { isSameOrigin, sanitize } from "@/lib/security";
 export async function GET() {
   try {
     await requireAdmin();
-    const [reports, announcements, controls, usage] = await Promise.all([
+    const [reports, announcements, controls, usage, activeSessionRows] = await Promise.all([
       db.select().from(errorReports).orderBy(desc(errorReports.createdAt)).limit(100),
       db.select().from(systemAnnouncements).orderBy(desc(systemAnnouncements.createdAt)).limit(100),
       db.select().from(serviceControls).orderBy(serviceControls.service),
       db.select().from(analysisUsageLogs).orderBy(desc(analysisUsageLogs.createdAt)).limit(100),
+      db.select({ count: count() }).from(sessions).where(gt(sessions.expiresAt, new Date())),
     ]);
-    return NextResponse.json({ reports, announcements, controls, usage, errorCodes: ERROR_CATALOG });
+    return NextResponse.json({ reports, announcements, controls, usage, activeUsers: Number(activeSessionRows[0]?.count || 0), errorCodes: ERROR_CATALOG });
   } catch (error) { return NextResponse.json({ error: error instanceof Error ? error.message : "AUTH-002" }, { status: 403 }); }
 }
 
