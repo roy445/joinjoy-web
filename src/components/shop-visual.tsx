@@ -1,0 +1,30 @@
+"use client";
+
+import { AnimatePresence, motion } from "framer-motion";
+import { Maximize2, X } from "lucide-react";
+import { useState } from "react";
+
+export type ShopVisualItem = { id: number; name: string; type: "title" | "badge" | "frame"; description?: string | null; rarity: string; metadata?: Record<string, unknown> | null };
+
+const palettes: Record<string, { border: string; glow: string; particle: string }> = {
+  common: { border: "from-slate-300 via-white to-slate-400", glow: "bg-slate-300/20", particle: "text-slate-300" },
+  rare: { border: "from-[#5ad5c5] via-[#e9fff8] to-[#498cff]", glow: "bg-[#5ad5c5]/30", particle: "text-[#a4f2e4]" },
+  epic: { border: "from-[#ff9b78] via-[#ffe7d2] to-[#a974ff]", glow: "bg-[#ff9b78]/30", particle: "text-[#ffd0bd]" },
+  legendary: { border: "from-[#bf953f] via-[#fff1a8] to-[#aa771c]", glow: "bg-[#f5d98a]/35", particle: "text-[#ffe9a4]" },
+};
+
+export function ShopVisual({ item, large = false }: { item: ShopVisualItem; large?: boolean }) {
+  const palette = palettes[item.rarity] ?? palettes.rare;
+  const metadata = item.metadata ?? {};
+  const particleCount = large ? Number(metadata.particleCount ?? 28) : Number(metadata.particleCount ?? 12);
+  return <div className={`relative flex items-center justify-center ${large ? "h-80 w-full" : "h-full w-full"}`}>
+    <div className={`absolute ${large ? "inset-16" : "inset-10"} rounded-full ${palette.glow} blur-3xl animate-glow-pulse`} />
+    {Array.from({ length: particleCount }).map((_, i) => <span key={i} className={`absolute ${palette.particle} shop-particle`} style={{ left: `${10 + ((i * 41) % 80)}%`, top: `${8 + ((i * 53) % 82)}%`, animationDelay: `${(i % 9) * 0.22}s`, animationDuration: `${2 + (i % 5) * 0.5}s` }}>{i % 3 === 0 ? "✦" : "·"}</span>)}
+    {item.type === "title" ? <motion.div whileHover={{ scale: 1.06 }} className={`relative z-10 rounded-2xl bg-white/90 px-6 py-4 text-center text-xl font-black text-brand-700 shadow-xl dark:bg-slate-800 dark:text-brand-200 ${item.rarity === "legendary" ? "animate-gold-glow" : ""}`}>{item.name}<span className="mt-1 block text-[10px] font-bold tracking-[0.2em] text-soft">TITLE</span></motion.div> : <motion.div whileHover={{ scale: 1.06, rotate: item.type === "badge" ? 8 : 0 }} className={`relative z-10 flex items-center justify-center rounded-full bg-white shadow-xl dark:bg-slate-800 ${item.type === "frame" ? `${large ? "h-56 w-56" : "h-32 w-32"} border-[6px] bg-[#f4d7c4] bg-gradient-to-br ${palette.border}` : `${large ? "h-44 w-44" : "h-28 w-28"} border-4 border-white dark:border-slate-600`}`}><span className={large ? "text-7xl" : "text-5xl"}>{item.type === "badge" ? "✦" : "🧑🏻"}</span>{item.type === "frame" && <span className={`absolute inset-[-18px] rounded-full border border-dashed ${palette.particle} animate-orbit`} />}</motion.div>}
+  </div>;
+}
+
+export function ShopPreviewButton({ item }: { item: ShopVisualItem }) {
+  const [open, setOpen] = useState(false);
+  return <><button className="group relative h-full w-full" onClick={() => setOpen(true)} aria-label={`預覽${item.name}`}><ShopVisual item={item} /><span className="absolute bottom-3 right-3 flex items-center gap-1 rounded-full bg-black/35 px-2 py-1 text-[11px] font-bold text-white opacity-0 backdrop-blur transition group-hover:opacity-100"><Maximize2 size={12} /> 全螢幕預覽</span></button><AnimatePresence>{open && <motion.div className="fixed inset-0 z-[80] flex items-center justify-center bg-[#0b1717]/85 p-4 backdrop-blur-xl" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setOpen(false)}><motion.div className="relative grid max-h-[92vh] w-full max-w-4xl gap-6 overflow-auto rounded-[32px] bg-[#172a29] p-6 text-white shadow-2xl md:grid-cols-[1.1fr_0.9fr] md:p-10" initial={{ opacity: 0, scale: 0.94, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.97 }} onClick={(e) => e.stopPropagation()}><button onClick={() => setOpen(false)} className="absolute right-4 top-4 rounded-full bg-white/10 p-2" aria-label="關閉預覽"><X size={20} /></button><div className="flex min-h-[320px] items-center justify-center rounded-[28px] bg-gradient-to-br from-[#284943] to-[#101d20]"><ShopVisual item={item} large /></div><div className="flex flex-col justify-center"><p className="text-xs font-bold uppercase tracking-[0.22em] text-[#9bf8df]">LIVE FULLSCREEN PREVIEW</p><h2 className="mt-3 font-display text-3xl font-black">{item.name}</h2><p className="mt-4 leading-7 text-white/70">{item.description || "這件收藏品擁有獨立的 JoinJoy 視覺效果，點擊預覽可以在兌換前查看完整展示。"}</p><div className="mt-6 flex flex-wrap gap-2"><span className="rounded-full bg-white/10 px-3 py-1.5 text-xs">{item.type === "frame" ? "動態頭像框" : item.type === "title" ? "光效稱號" : "互動徽章"}</span><span className="rounded-full bg-white/10 px-3 py-1.5 text-xs">{item.rarity.toUpperCase()}</span></div></div></motion.div></motion.div>}</AnimatePresence></>;
+}

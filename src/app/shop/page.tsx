@@ -1,6 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { motion } from "framer-motion";
+import { ShopPreviewButton } from "@/components/shop-visual";
 import { ShoppingBag, Star, Award, User, Check, Coins, Loader2 } from "lucide-react";
 import { JCoin } from "@/components/j-coin";
 import { UserHonor } from "@/components/user-honor";
@@ -28,6 +30,8 @@ export default function ShopPage() {
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<any>(null);
   const [processingId, setProcessingId] = useState<number | null>(null);
+  const [query, setQuery] = useState("");
+  const [typeFilter, setTypeFilter] = useState<"all" | "frame" | "title" | "badge">("all");
 
   const fetchData = useCallback(async () => {
     try {
@@ -103,12 +107,10 @@ export default function ShopPage() {
   }
 
   if (loading) {
-    return (
-      <div className="flex min-h-[60vh] items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-brand-500" />
-      </div>
-    );
+    return <div className="mx-auto max-w-6xl px-4 py-8 md:px-8"><div className="skeleton mb-8 h-40 rounded-[32px]" /><div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">{Array.from({ length: 8 }).map((_, index) => <div key={index} className="card-surface overflow-hidden rounded-[2rem]"><div className="skeleton aspect-square" /><div className="space-y-3 p-6"><div className="skeleton h-5 w-3/5 rounded" /><div className="skeleton h-4 w-full rounded" /><div className="skeleton h-10 w-full rounded-2xl" /></div></div>)}</div></div>;
   }
+
+  const filteredItems = items.filter((item) => (typeFilter === "all" || item.type === typeFilter) && (!query || `${item.name} ${item.description}`.toLowerCase().includes(query.toLowerCase())));
 
   const rarityColors = {
     common: "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400",
@@ -154,8 +156,8 @@ export default function ShopPage() {
         )}
       </div>
 
-      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-        {items.map((item) => {
+      <div className="mb-6 flex flex-col gap-3 rounded-3xl bg-app-soft p-3 md:flex-row md:items-center md:justify-between"><div className="flex flex-wrap gap-2">{([['all','全部'],['frame','頭像框'],['title','稱號'],['badge','徽章']] as const).map(([key,label]) => <button key={key} onClick={() => setTypeFilter(key)} className={cn("rounded-full px-3 py-2 text-xs font-bold", typeFilter === key ? "bg-brand-500 text-white" : "text-soft hover:bg-app hover:text-main")}>{label}</button>)}</div><input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="搜尋收藏品" className="rounded-full border border-[var(--color-border)] bg-app px-4 py-2 text-sm text-main outline-none focus:ring-2 focus:ring-brand-400" /></div><motion.div initial="hidden" animate="show" variants={{ hidden: {}, show: { transition: { staggerChildren: 0.07 } } }} className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        {filteredItems.map((item, index) => {
           const invItem = inventory.find((i) => i.itemId === item.id);
           const isOwned = !!invItem;
           const isEquipped = invItem?.isEquipped || false;
@@ -163,7 +165,7 @@ export default function ShopPage() {
           const isProcessing = processingId === item.id;
 
           return (
-            <div 
+            <motion.div initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.42, delay: index * 0.06 }}
               key={item.id} 
               className={cn(
                 "group relative flex flex-col overflow-hidden rounded-[2rem] border border-[var(--color-border)] bg-app-soft transition-all hover:-translate-y-1 hover:shadow-xl",
@@ -172,7 +174,9 @@ export default function ShopPage() {
             >
               <div className="relative aspect-square overflow-hidden bg-slate-100 dark:bg-slate-800/50">
                 <div className="flex h-full w-full items-center justify-center p-8">
-                  {item.type === "title" && (
+                  <ShopPreviewButton item={item} />
+                  {/* The existing type-specific preview remains available as the fallback metadata surface. */}
+                  {false && item.type === "title" && (
                     <div className="flex flex-col items-center gap-2">
                       <Star className="h-12 w-12 text-brand-400 opacity-20" />
                       <span className={cn(
@@ -283,10 +287,10 @@ export default function ShopPage() {
                   <Check size={16} strokeWidth={3} />
                 </div>
               )}
-            </div>
+            </motion.div>
           );
         })}
-      </div>
+      </motion.div>
 
       {!loading && items.length === 0 && (
         <div className="flex flex-col items-center justify-center py-20 text-center">
