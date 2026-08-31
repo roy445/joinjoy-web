@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { BetaBadge } from "@/components/beta-badge";
 import { PlannerChat } from "@/components/planner-chat";
+import { ErrorMessage } from "@/components/error-message";
 
 const quickStarts = ["吃飯", "玩樂", "逛街", "看電影", "景點", "聊天放鬆", "隨機決定"];
 const vibes = ["輕鬆聊天", "拍照打卡", "刺激好玩", "美食優先", "購物逛街"];
@@ -210,6 +211,7 @@ export function PlannerClient() {
   const [weatherError, setWeatherError] = useState("");
   const [generating, setGenerating] = useState(false);
   const [generationNote, setGenerationNote] = useState("");
+  const [generationErrorCode, setGenerationErrorCode] = useState<string | null>(null);
   const [generationRequested, setGenerationRequested] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<Plan | null>(null);
   const [shareOpen, setShareOpen] = useState(false);
@@ -237,17 +239,20 @@ export function PlannerClient() {
 
   async function generatePlans() {
     setGenerationNote("");
+    setGenerationErrorCode(null);
     try {
       const usageResponse = await fetch("/api/analysis/usage", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ pagePath: "/planner", platform: form.origin }) });
       const usage = await usageResponse.json().catch(() => null) as { error?: string; code?: string } | null;
       if (!usageResponse.ok) {
-        setGenerationNote(`${usage?.error || "抱歉，遇到了一些錯誤。"}${usage?.code ? ` 錯誤代碼：${usage.code}` : ""}`);
+        setGenerationErrorCode(usage?.code || "SYS-002");
+        setGenerationNote(usage?.error || "抱歉，遇到了一些錯誤。");
         return;
       }
       setGenerationRequested(true);
       setSeed((value) => value + 1);
     } catch {
-      setGenerationNote("抱歉，遇到了一些錯誤。錯誤代碼：NET-001");
+      setGenerationErrorCode("NET-001");
+      setGenerationNote("抱歉，遇到了一些錯誤。");
     }
   }
 
@@ -540,7 +545,7 @@ export function PlannerClient() {
             <button disabled={generating} onClick={generatePlans} className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl bg-brand-500 px-5 py-3.5 font-black text-white transition hover:bg-brand-400 disabled:opacity-60"><Sparkles size={17} /> {generating ? "正在生成城市方案…" : "生成我的城市方案"}</button>
           </div>
 
-          <div id="plans" className="space-y-4"><div className="flex items-end justify-between"><div><p className="text-xs font-bold uppercase tracking-widest text-brand-400">02 / AI SHORTLIST</p><h2 className="mt-1 text-2xl font-black">為你排出的 3 條路線</h2>{generating && <p className="mt-1 text-xs text-brand-400">正在搜尋附近真實地點並計算路線…</p>}{routeLoading && !generating && <p className="mt-1 text-xs text-brand-400">正在計算路線…</p>}{routeError && <p className="mt-1 text-xs text-coral-500">{routeError}</p>}{generationNote && <p className="mt-1 text-xs font-bold text-brand-500">{generationNote}</p>}</div><button disabled={generating} onClick={() => { setGenerationRequested(true); setGenerationNote(""); setSeed((value) => value + 1); }} className="flex items-center gap-1 text-sm text-soft hover:text-brand-500 disabled:opacity-60"><RefreshCw size={15} /> 再生成</button></div>
+          <div id="plans" className="space-y-4"><div className="flex items-end justify-between"><div><p className="text-xs font-bold uppercase tracking-widest text-brand-400">02 / AI SHORTLIST</p><h2 className="mt-1 text-2xl font-black">為你排出的 3 條路線</h2>{generating && <p className="mt-1 text-xs text-brand-400">正在搜尋附近真實地點並計算路線…</p>}{routeLoading && !generating && <p className="mt-1 text-xs text-brand-400">正在計算路線…</p>}{routeError && <p className="mt-1 text-xs text-coral-500">{routeError}</p>}{generationErrorCode ? <div className="mt-3"><ErrorMessage code={generationErrorCode} pagePath="/planner" title={generationNote} /></div> : generationNote && <p className="mt-1 text-xs font-bold text-brand-500">{generationNote}</p>}</div><button disabled={generating} onClick={() => { setGenerationRequested(true); setGenerationNote(""); setSeed((value) => value + 1); }} className="flex items-center gap-1 text-sm text-soft hover:text-brand-500 disabled:opacity-60"><RefreshCw size={15} /> 再生成</button></div>
             {plans.map((plan, planIndex) => <article key={plan.title} className="rounded-3xl border border-[var(--color-border)] bg-surface p-5 transition hover:-translate-y-0.5 hover:border-brand-400/60 md:p-6"><div className="flex items-start justify-between gap-4"><div className="flex gap-3"><span className="text-3xl">{plan.emoji}</span><div><div className="flex flex-wrap items-center gap-2"><h3 className="text-xl font-black">{plan.title}</h3>{planIndex === 0 && <span className="rounded-full bg-brand-500 px-2 py-1 text-[10px] font-black uppercase tracking-wider text-white">最佳匹配</span>}</div><p className="mt-1 text-sm leading-6 text-main">{plan.summary}</p></div></div><div className="rounded-2xl bg-brand-500/10 px-3 py-2 text-right"><p className="text-2xl font-black text-brand-500">{plan.match}%</p><p className="text-[10px] uppercase tracking-wider text-soft">match</p></div></div>            {/* 行程表專區 - 強化視覺 */}
             <div className="mt-6 rounded-2xl bg-app-soft/30 p-4">
               <p className="mb-4 flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-brand-500">
