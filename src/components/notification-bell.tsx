@@ -11,7 +11,7 @@ const ICONS: Record<string, string> = {
   waitlist_promoted: "🎉", participant_status: "✅", event_reminder: "⏳", site_announcement: "📢",
   account_suspended: "⛔", account_restored: "🔓", blacklist_added: "⚠️", blacklist_removed: "🔓",
   create_request_approved: "🎊", create_request_rejected: "😢", admin_create_request: "🛠️",
-  admin_report: "🚩", admin_blacklist_request: "🛡️", credit_granted: "🎁", report_update: "📮",
+  admin_report: "🚩", admin_blacklist_request: "🛡️", credit_granted: "🎁", report_update: "📮", system_error: "⚠️", system_recovery: "✅",
   event_deleted: "🗑️", event_deleted_admin: "🗑️", admin_appeal: "🙋", appeal_approved: "🎉", appeal_rejected: "📮",
 };
 
@@ -35,7 +35,7 @@ export function NotificationBell({ loggedIn }: { loggedIn: boolean }) {
       }
     };
     load();
-    const id = setInterval(load, 20000);
+    const id = setInterval(load, 10000);
     return () => {
       active = false;
       clearInterval(id);

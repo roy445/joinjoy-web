@@ -564,6 +564,7 @@ export const systemAnnouncements = pgTable("system_announcements", {
   createdBy: integer("created_by").references(() => users.id),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   resolvedAt: timestamp("resolved_at"),
+  expiresAt: timestamp("expires_at"),
 });
 
 export const analysisUsageLogs = pgTable("analysis_usage_logs", {

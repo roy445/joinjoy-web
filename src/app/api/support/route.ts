@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { and, desc, eq, gte } from "drizzle-orm";
+import { and, desc, eq, gte, isNull, or } from "drizzle-orm";
 import { db } from "@/db";
 import { errorReports, serviceControls, systemAnnouncements } from "@/db/schema";
 import { requireUser } from "@/lib/auth";
@@ -9,7 +9,7 @@ import { isSameOrigin, sanitize } from "@/lib/security";
 
 export async function GET() {
   const [announcements, controls] = await Promise.all([
-    db.select().from(systemAnnouncements).where(eq(systemAnnouncements.isActive, true)).orderBy(desc(systemAnnouncements.createdAt)).limit(8),
+    db.select().from(systemAnnouncements).where(and(eq(systemAnnouncements.isActive, true), or(isNull(systemAnnouncements.expiresAt), gte(systemAnnouncements.expiresAt, new Date())))).orderBy(desc(systemAnnouncements.createdAt)).limit(8),
     db.select().from(serviceControls).where(eq(serviceControls.isEnabled, false)),
   ]);
   return NextResponse.json({ announcements, disabledServices: controls.map((item) => item.service) }, { headers: { "Cache-Control": "no-store, max-age=0" } });

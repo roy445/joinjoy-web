@@ -64,6 +64,13 @@
       "when": 1788185664501,
       "tag": "0008_support-center",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1788189000000,
+      "tag": "0009_recovery-announcement-expiry",
+      "breakpoints": true
     }
   ]
 }

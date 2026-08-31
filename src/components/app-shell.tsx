@@ -19,6 +19,7 @@ import {
   Users,
   Sparkles,
   ShoppingBag,
+  Bug,
 } from "lucide-react";
 import { Logo } from "@/components/logo";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -233,7 +234,7 @@ export function AppShell({ user, children }: { user: ClientUser | null; children
               />
               <div className="mt-0.5 flex items-center gap-2">
                 <p className="truncate text-[10px] text-soft">信用 {Number(user.creditScore).toFixed(0)}</p>
-                <div className="flex items-center gap-1 text-[10px] font-bold text-amber-600 animate-pulse-subtle dark:text-amber-400">
+                <div className="flex items-center gap-1 text-[10px] font-bold text-amber-600 dark:text-amber-400">
                   <JCoin size={14} />
                   {user.jCoins || 0}
                 </div>
@@ -303,6 +304,9 @@ export function AppShell({ user, children }: { user: ClientUser | null; children
                 </div>
               </Link>
             )}
+            <Link href="/support/report" className="hidden items-center gap-1.5 rounded-full border border-rose-200 bg-rose-50 px-4 py-2 text-sm font-black text-rose-700 transition hover:bg-rose-100 md:flex dark:border-rose-900/40 dark:bg-rose-950/30 dark:text-rose-200">
+              <Bug size={16} /> 回報錯誤
+            </Link>
             <Link href="/events/create" className="btn-coral hidden items-center gap-1.5 rounded-full px-4 py-2 text-sm font-bold whitespace-nowrap md:flex">
               <PlusCircle size={16} /> 建立活動
             </Link>
