@@ -516,3 +516,61 @@ export const honorNotifications = pgTable("honor_notifications", {
   isSeen: boolean("is_seen").notNull().default(false),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
+
+// ---------- Support Center / Error Operations ----------
+export const errorDefinitions = pgTable("error_definitions", {
+  id: serial("id").primaryKey(),
+  code: varchar("code", { length: 20 }).notNull().unique(),
+  name: varchar("name", { length: 150 }).notNull(),
+  description: text("description").notNull(),
+  severity: varchar("severity", { length: 20 }).notNull().default("medium"), // low | medium | high | critical
+  service: varchar("service", { length: 50 }).notNull().default("site"),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const errorReports = pgTable("error_reports", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => users.id, { onDelete: "set null" }),
+  kind: varchar("kind", { length: 20 }).notNull(), // error | suggestion | question
+  errorCode: varchar("error_code", { length: 20 }),
+  errorName: varchar("error_name", { length: 150 }),
+  pagePath: varchar("page_path", { length: 300 }),
+  email: varchar("email", { length: 255 }),
+  message: text("message").notNull(),
+  status: varchar("status", { length: 20 }).notNull().default("open"), // open | reviewing | resolved | dismissed
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  resolvedAt: timestamp("resolved_at"),
+});
+
+export const serviceControls = pgTable("service_controls", {
+  id: serial("id").primaryKey(),
+  service: varchar("service", { length: 50 }).notNull().unique(),
+  isEnabled: boolean("is_enabled").notNull().default(true),
+  activeErrorCode: varchar("active_error_code", { length: 20 }),
+  publicMessage: text("public_message"),
+  updatedBy: integer("updated_by").references(() => users.id),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const systemAnnouncements = pgTable("system_announcements", {
+  id: serial("id").primaryKey(),
+  title: varchar("title", { length: 180 }).notNull(),
+  content: text("content").notNull(),
+  kind: varchar("kind", { length: 20 }).notNull().default("manual"), // manual | automatic | error_test
+  errorCode: varchar("error_code", { length: 20 }),
+  severity: varchar("severity", { length: 20 }).notNull().default("low"),
+  isActive: boolean("is_active").notNull().default(true),
+  createdBy: integer("created_by").references(() => users.id),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  resolvedAt: timestamp("resolved_at"),
+});
+
+export const analysisUsageLogs = pgTable("analysis_usage_logs", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => users.id, { onDelete: "set null" }),
+  pagePath: varchar("page_path", { length: 300 }),
+  platform: varchar("platform", { length: 40 }),
+  status: varchar("status", { length: 20 }).notNull().default("started"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});

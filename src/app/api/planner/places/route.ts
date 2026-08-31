@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { serviceError } from "@/lib/service-status";
 
 type PlaceRequest = {
   origin?: string;
@@ -204,6 +205,8 @@ async function searchPlace(
 
 export async function POST(request: NextRequest) {
   try {
+    const blocked = await serviceError("analysis");
+    if (blocked) return NextResponse.json({ error: blocked.message, code: blocked.code }, { status: 503 });
     const apiKey = process.env.FOURSQUARE_API_KEY;
     if (!apiKey) return jsonError("尚未設定 Foursquare API key", 503);
     const body = (await request.json().catch(() => null)) as PlaceRequest | null;

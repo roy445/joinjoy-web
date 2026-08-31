@@ -223,6 +223,8 @@ export function PlannerClient() {
     if (typeof window !== "undefined" && authChecked && me) {
       const hasSeenGuide = window.localStorage.getItem("joinjoy:planner-guide-seen");
       if (!hasSeenGuide) {
+        // The modal is intentionally opened after browser-only localStorage inspection.
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setGuideModalOpen(true);
         window.localStorage.setItem("joinjoy:planner-guide-seen", "true");
       }
@@ -233,10 +235,20 @@ export function PlannerClient() {
   const [places, setPlaces] = useState<Record<string, Array<Place | null>>>({});
   const plans = useMemo(() => buildPlans({ ...form, indoor: form.indoor || Boolean(weather?.rainy) }, seed), [form, seed, weather?.rainy]);
 
-  function generatePlans() {
-    setGenerationRequested(true);
+  async function generatePlans() {
     setGenerationNote("");
-    setSeed((value) => value + 1);
+    try {
+      const usageResponse = await fetch("/api/analysis/usage", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ pagePath: "/planner", platform: form.origin }) });
+      const usage = await usageResponse.json().catch(() => null) as { error?: string; code?: string } | null;
+      if (!usageResponse.ok) {
+        setGenerationNote(`${usage?.error || "抱歉，遇到了一些錯誤。"}${usage?.code ? ` 錯誤代碼：${usage.code}` : ""}`);
+        return;
+      }
+      setGenerationRequested(true);
+      setSeed((value) => value + 1);
+    } catch {
+      setGenerationNote("抱歉，遇到了一些錯誤。錯誤代碼：NET-001");
+    }
   }
 
   useEffect(() => {

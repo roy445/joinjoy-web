@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { ShopPreviewButton } from "@/components/shop-visual";
-import { ShoppingBag, Star, Award, User, Check, Coins, Loader2 } from "lucide-react";
+import { ShoppingBag, Check, Loader2 } from "lucide-react";
 import { JCoin } from "@/components/j-coin";
 import { UserHonor } from "@/components/user-honor";
 import { announceCelebration } from "@/components/celebration-feedback";
@@ -181,62 +181,7 @@ export default function ShopPage() {
             >
               <div className="relative aspect-square overflow-hidden bg-slate-100 dark:bg-slate-800/50">
                 <div className="flex h-full w-full items-center justify-center p-8">
-                  <ShopPreviewButton item={item} />
-                  {/* The existing type-specific preview remains available as the fallback metadata surface. */}
-                  {false && item.type === "title" && (
-                    <div className="flex flex-col items-center gap-2">
-                      <Star className="h-12 w-12 text-brand-400 opacity-20" />
-                      <span className={cn(
-                        "rounded-lg px-4 py-2 text-lg font-black shadow-sm",
-                        item.rarity === "epic" || item.rarity === "legendary" ? "animate-gold-glow" : "bg-white text-brand-700 dark:bg-slate-700 dark:text-brand-300"
-                      )}>
-                        {item.name}
-                      </span>
-                    </div>
-                  )}
-                  {item.type === "badge" && (
-                    <div className="relative flex h-24 w-24 items-center justify-center rounded-full bg-white shadow-inner dark:bg-slate-700">
-                      <Award className={cn(
-                        "h-12 w-12",
-                        item.rarity === "legendary" ? "text-amber-500" : "text-brand-500"
-                      )} />
-                      {item.rarity === "legendary" && (
-                        <div className="absolute inset-0 animate-ping rounded-full border-2 border-amber-400 opacity-20" />
-                      )}
-                    </div>
-                  )}
-                  {item.type === "frame" && (
-                    <div
-                      className={cn(
-                        "honor-frame-preview relative flex h-28 w-28 items-center justify-center rounded-full border-4 bg-white",
-                        `honor-frame-${item.rarity}`,
-                        item.rarity === "common" && "border-slate-300 shadow-sm",
-                        item.rarity === "rare" && "border-brand-500 shadow-[0_0_18px_rgba(51,153,144,0.34)]",
-                        item.rarity === "epic" && "border-coral-500 shadow-[0_0_22px_rgba(229,103,63,0.42)]",
-                        item.rarity === "legendary" && "border-[#bf953f] shadow-[0_0_28px_rgba(191,149,63,0.55)]",
-                      )}
-                    >
-                      <div
-                        className={cn(
-                          "absolute -inset-2 rounded-full border-2",
-                          item.rarity === "common" && "border-slate-200",
-                          item.rarity === "rare" && "border-brand-300",
-                          item.rarity === "epic" && "border-coral-300",
-                          item.rarity === "legendary" && "border-[#f5d98b]",
-                        )}
-                      />
-                      {(item.rarity === "epic" || item.rarity === "legendary") && (
-                        <span className="absolute -right-2 -top-2 text-lg text-amber-500 animate-pulse-subtle" aria-hidden="true">✦</span>
-                      )}
-                      {item.rarity === "legendary" && (
-                        <span className="honor-frame-orbit absolute inset-[-14px] rounded-full border border-dashed border-[#bf953f]" aria-hidden="true" />
-                      )}
-                      <User className={cn(
-                        "relative z-10 h-14 w-14",
-                        item.rarity === "legendary" ? "text-[#bf953f]" : item.rarity === "epic" ? "text-coral-500" : item.rarity === "rare" ? "text-brand-500" : "text-slate-400",
-                      )} />
-                    </div>
-                  )}
+                  <ShopPreviewButton item={item} onAction={() => (isOwned ? handleEquip(item.id, isEquipped) : handlePurchase(item.id))} actionLabel={isOwned ? (isEquipped ? "卸下頭像裝飾" : "立即套用") : `使用 ${item.price} J幣兌換`} />
                 </div>
                 
                 <div className="absolute left-4 top-4">

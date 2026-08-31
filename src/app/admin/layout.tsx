@@ -22,6 +22,7 @@ const navItems = [
   { href: "/admin/groups", label: "身份組管理", icon: ShieldCheck },
   { href: "/admin/jcoins", label: "J幣審計", icon: ShoppingBag },
   { href: "/admin/ai", label: "AI 監控", icon: Brain },
+  { href: "/admin/support", label: "錯誤與服務", icon: ShieldCheck },
   { href: "/admin/logs", label: "操作日誌", icon: ScrollText },
 ];
 

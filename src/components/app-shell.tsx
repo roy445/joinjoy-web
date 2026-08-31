@@ -29,6 +29,8 @@ import { AvatarDecoration } from "@/components/avatar-decoration";
 import { JCoin } from "@/components/j-coin";
 import { JueJueChat } from "@/components/juejue-chat";
 import { HonorNotificationListener } from "@/components/honor-notification-listener";
+import { SiteFooter } from "@/components/site-footer";
+import { SystemAnnouncementBanner } from "@/components/system-announcement-banner";
 import { CelebrationFeedback, type CelebrationDetail } from "@/components/celebration-feedback";
 import type { ClientUser } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -319,9 +321,11 @@ export function AppShell({ user, children }: { user: ClientUser | null; children
           </div>
         </header>
 
+        <SystemAnnouncementBanner />
         <main key={pathname} className="flex-1 animate-fade-up" style={{ animationDuration: "0.35s" }}>
           {children}
         </main>
+        <SiteFooter />
       </div>
 
       {/* Mobile bottom nav */}
