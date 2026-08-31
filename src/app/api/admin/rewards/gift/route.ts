@@ -64,10 +64,6 @@ export async function POST(req: NextRequest) {
     } | null;
 
     const userId = positiveId(body?.userId, "使用者 ID");
-    if (userId === admin.id) {
-      throw new GiftInputError("為避免誤操作，請選擇其他使用者");
-    }
-
     const giftType = body?.giftType === "item" ? "item" : body?.giftType === "jcoins" ? "jcoins" : "";
     if (!giftType) throw new GiftInputError("請選擇要贈送的類型");
 

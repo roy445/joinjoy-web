@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { ShoppingBag, Star, Award, User, Check, Coins, Loader2 } from "lucide-react";
 import { JCoin } from "@/components/j-coin";
 import { UserHonor } from "@/components/user-honor";
+import { announceCelebration } from "@/components/celebration-feedback";
 import { cn } from "@/lib/utils";
 
 type ShopItem = {
@@ -28,11 +29,7 @@ export default function ShopPage() {
   const [user, setUser] = useState<any>(null);
   const [processingId, setProcessingId] = useState<number | null>(null);
 
-  useEffect(() => {
-    fetchData();
-  }, []);
-
-  async function fetchData() {
+  const fetchData = useCallback(async () => {
     try {
       const [shopRes, invRes, userRes] = await Promise.all([
         fetch("/api/shop"),
@@ -42,7 +39,7 @@ export default function ShopPage() {
       const shopData = await shopRes.json();
       const invData = await invRes.json();
       const userData = await userRes.json();
-      
+
       setItems(shopData.items || []);
       setInventory(invData.inventory || []);
       setUser(userData.user);
@@ -51,7 +48,15 @@ export default function ShopPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, []);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      void fetchData();
+    }, 0);
+
+    return () => window.clearTimeout(timer);
+  }, [fetchData]);
 
   async function handlePurchase(itemId: number) {
     setProcessingId(itemId);
@@ -63,6 +68,11 @@ export default function ShopPage() {
       });
       const data = await res.json();
       if (data.ok) {
+        announceCelebration({
+          kind: "shop",
+          title: "兌換成功！",
+          description: data.message || "商品已加入你的榮譽收藏。",
+        });
         alert(data.message);
         await fetchData();
       } else {
@@ -185,13 +195,35 @@ export default function ShopPage() {
                     </div>
                   )}
                   {item.type === "frame" && (
-                    <div className="relative h-24 w-24 rounded-full border-4 border-slate-300 bg-slate-200 dark:border-slate-600 dark:bg-slate-700">
-                      <div className={cn(
-                        "absolute -inset-1 rounded-full border-4",
-                        item.metadata?.border || "border-brand-400",
-                        item.metadata?.glow && "shadow-[0_0_15px_rgba(51,153,144,0.5)]"
+                    <div
+                      className={cn(
+                        "honor-frame-preview relative flex h-28 w-28 items-center justify-center rounded-full border-4 bg-white",
+                        `honor-frame-${item.rarity}`,
+                        item.rarity === "common" && "border-slate-300 shadow-sm",
+                        item.rarity === "rare" && "border-brand-500 shadow-[0_0_18px_rgba(51,153,144,0.34)]",
+                        item.rarity === "epic" && "border-coral-500 shadow-[0_0_22px_rgba(229,103,63,0.42)]",
+                        item.rarity === "legendary" && "border-[#bf953f] shadow-[0_0_28px_rgba(191,149,63,0.55)]",
+                      )}
+                    >
+                      <div
+                        className={cn(
+                          "absolute -inset-2 rounded-full border-2",
+                          item.rarity === "common" && "border-slate-200",
+                          item.rarity === "rare" && "border-brand-300",
+                          item.rarity === "epic" && "border-coral-300",
+                          item.rarity === "legendary" && "border-[#f5d98b]",
+                        )}
+                      />
+                      {(item.rarity === "epic" || item.rarity === "legendary") && (
+                        <span className="absolute -right-2 -top-2 text-lg text-amber-500 animate-pulse-subtle" aria-hidden="true">✦</span>
+                      )}
+                      {item.rarity === "legendary" && (
+                        <span className="honor-frame-orbit absolute inset-[-14px] rounded-full border border-dashed border-[#bf953f]" aria-hidden="true" />
+                      )}
+                      <User className={cn(
+                        "relative z-10 h-14 w-14",
+                        item.rarity === "legendary" ? "text-[#bf953f]" : item.rarity === "epic" ? "text-coral-500" : item.rarity === "rare" ? "text-brand-500" : "text-slate-400",
                       )} />
-                      <User className="m-auto h-12 w-12 text-slate-400" />
                     </div>
                   )}
                 </div>

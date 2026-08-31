@@ -13,6 +13,7 @@ import { Badge, CreditBadge, BlacklistBadge, EmptyState } from "@/components/ui"
 import { UserHonor } from "@/components/user-honor";
 import { REPORT_REASONS } from "@/lib/constants";
 import { ShareModal } from "@/components/share-modal";
+import { announceCelebration } from "@/components/celebration-feedback";
 
 type Tab = "info" | "participants" | "map" | "comments" | "chat" | "announcements";
 
@@ -298,7 +299,16 @@ function JoinModal({ event, onClose, showToast, reload }: any) {
         body: JSON.stringify({ agreePolicy: agree, plusOneCount: plusOne }),
       });
       const d = await res.json();
-      if (res.ok) { showToast(d.message); onClose(); reload(); } else showToast(d.error);
+      if (res.ok) {
+        showToast(d.message);
+        announceCelebration({
+          kind: "join",
+          title: "報名成功！",
+          description: "行程已加入你的活動清單，期待和大家見面。",
+        });
+        onClose();
+        reload();
+      } else showToast(d.error);
     } finally { setLoading(false); }
   }
 

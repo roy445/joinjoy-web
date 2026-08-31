@@ -37,9 +37,6 @@ export async function POST(req: NextRequest) {
     if (reason.length < 2) {
       return NextResponse.json({ error: "人工調整必須填寫原因" }, { status: 400 });
     }
-    if (userId === admin.id) {
-      return NextResponse.json({ error: "為避免誤操作，請勿直接調整自己的 J 幣" }, { status: 400 });
-    }
 
     const result = await db.transaction(async (tx) => {
       // PostgreSQL transaction advisory lock prevents two concurrent manual adjustments

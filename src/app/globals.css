@@ -129,6 +129,18 @@
     0%, 100% { transform: translateY(0); }
     50% { transform: translateY(-2px); }
   }
+  @keyframes frame-shimmer {
+    0% { transform: translateX(-120%) rotate(18deg); }
+    100% { transform: translateX(220%) rotate(18deg); }
+  }
+  @keyframes frame-sparkle {
+    0%, 100% { opacity: 0.35; transform: scale(0.86) rotate(0deg); }
+    50% { opacity: 1; transform: scale(1.12) rotate(18deg); }
+  }
+  @keyframes frame-orbit {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+  }
 }
 
 .animate-gold-glow {
@@ -160,6 +172,21 @@
   animation: pulse-subtle 2s ease-in-out infinite;
 }
 
+.auth-card-shell {
+  animation-duration: 0.72s;
+  box-shadow: 0 24px 70px rgba(31, 101, 96, 0.14), 0 8px 24px rgba(229, 103, 63, 0.08);
+}
+
+.auth-card-sheen {
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.92), transparent);
+  animation: auth-sheen 3.6s ease-in-out 0.5s infinite;
+}
+
+@keyframes auth-sheen {
+  0%, 18% { opacity: 0; transform: translateX(-40%); }
+  36% { opacity: 1; }
+  58%, 100% { opacity: 0; transform: translateX(40%); }
+}
 
 .title-badge-glow {
   box-shadow: 0 0 8px rgba(var(--brand-500-rgb), 0.4);
@@ -167,6 +194,64 @@
 
 .animate-particle {
   animation: particle-float 2s ease-out infinite;
+}
+
+.honor-frame-preview {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+}
+
+.honor-frame-preview::before,
+.honor-frame-preview::after {
+  content: "";
+  position: absolute;
+  pointer-events: none;
+  border-radius: inherit;
+}
+
+.honor-frame-preview::before {
+  inset: -18%;
+  z-index: -1;
+  background: conic-gradient(from 0deg, transparent 0 28%, rgba(255,255,255,0.9) 42%, transparent 54% 100%);
+  opacity: 0;
+}
+
+.honor-frame-preview::after {
+  inset: 8%;
+  border: 1px solid rgba(255,255,255,0.72);
+  opacity: 0;
+}
+
+.honor-frame-rare::before,
+.honor-frame-epic::before,
+.honor-frame-legendary::before {
+  opacity: 0.42;
+  animation: frame-shimmer 3.2s ease-in-out infinite;
+}
+
+.honor-frame-epic::after,
+.honor-frame-legendary::after {
+  opacity: 0.72;
+  animation: frame-sparkle 1.8s ease-in-out infinite;
+}
+
+.honor-frame-legendary {
+  box-shadow: 0 0 0 3px rgba(191,149,63,0.2), 0 0 28px rgba(191,149,63,0.48);
+}
+
+.honor-frame-legendary .honor-frame-orbit {
+  animation: frame-orbit 7s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .auth-card-sheen,
+  .auth-card-shell,
+  .honor-frame-preview::before,
+  .honor-frame-preview::after,
+  .honor-frame-legendary .honor-frame-orbit {
+    animation: none;
+  }
 }
 
 .animate-beta-pulse {

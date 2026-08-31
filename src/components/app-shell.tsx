@@ -28,6 +28,7 @@ import { UserHonor } from "@/components/user-honor";
 import { JCoin } from "@/components/j-coin";
 import { JueJueChat } from "@/components/juejue-chat";
 import { HonorNotificationListener } from "@/components/honor-notification-listener";
+import { CelebrationFeedback, type CelebrationDetail } from "@/components/celebration-feedback";
 import type { ClientUser } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -52,6 +53,7 @@ export function AppShell({ user, children }: { user: ClientUser | null; children
   const router = useRouter();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [showGamificationGuide, setShowGamificationGuide] = useState(false);
+  const [celebration, setCelebration] = useState<CelebrationDetail | null>(null);
 
   useEffect(() => {
     // 檢查是否為第一次登入後進入，顯示遊戲化入門指南。
@@ -65,6 +67,33 @@ export function AppShell({ user, children }: { user: ClientUser | null; children
     const timer = window.setTimeout(() => setShowGamificationGuide(true), 0);
     return () => window.clearTimeout(timer);
   }, [user]);
+
+  useEffect(() => {
+    if (!user || typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("welcome") !== "1") return;
+
+    window.history.replaceState({}, "", `${window.location.pathname}${window.location.hash}`);
+    const timer = window.setTimeout(() => {
+      setCelebration({
+        kind: "login",
+        title: `歡迎回來，${user.name}`,
+        description: "準備好和 JoinJoy 一起探索下一場相聚了！",
+      });
+    }, 180);
+    return () => window.clearTimeout(timer);
+  }, [user]);
+
+  useEffect(() => {
+    function handleCelebration(event: Event) {
+      const detail = (event as CustomEvent<CelebrationDetail>).detail;
+      if (!detail?.kind || !detail.title) return;
+      setCelebration(detail);
+    }
+
+    window.addEventListener("joinjoy:celebration", handleCelebration);
+    return () => window.removeEventListener("joinjoy:celebration", handleCelebration);
+  }, []);
 
   const isAuthPage = pathname === "/login" || pathname === "/register" || pathname === "/forgot-password" || pathname === "/reset-password";
 
@@ -295,6 +324,15 @@ export function AppShell({ user, children }: { user: ClientUser | null; children
       </div>
 
       {/* Mobile bottom nav */}
+      {celebration && (
+        <CelebrationFeedback
+          kind={celebration.kind}
+          title={celebration.title}
+          description={celebration.description}
+          onClose={() => setCelebration(null)}
+        />
+      )}
+
       <nav className="fixed inset-x-0 bottom-0 z-30 flex items-center justify-around border-t border-[var(--color-border)] bg-app/95 py-2 backdrop-blur-md md:hidden">
         {[exploreNav[0], exploreNav[1], exploreNav[3], exploreNav[4], { href: "/notifications", label: "通知", icon: Bell }].map((item) => {
           const active = pathname === item.href;

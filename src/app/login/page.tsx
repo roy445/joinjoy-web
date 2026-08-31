@@ -33,7 +33,7 @@ function LoginForm() {
         router.refresh();
         return;
       }
-      router.push("/");
+      router.push("/?welcome=1");
       router.refresh();
     } finally {
       setLoading(false);

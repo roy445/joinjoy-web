@@ -7,7 +7,8 @@ export function AuthCard({ title, subtitle, children }: { title: string; subtitl
       <div className="pointer-events-none absolute -left-24 top-10 h-64 w-64 animate-float rounded-full bg-brand-200/40 blur-3xl" />
       <div className="pointer-events-none absolute -right-16 bottom-10 h-72 w-72 animate-float rounded-full bg-coral-200/40 blur-3xl" style={{ animationDelay: "1.5s" }} />
 
-      <div className="glass animate-fade-up relative w-full max-w-md rounded-[28px] p-8 shadow-2xl">
+      <div className="glass auth-card-shell animate-fade-up relative w-full max-w-md overflow-hidden rounded-[28px] p-8 shadow-2xl">
+        <div className="auth-card-sheen pointer-events-none absolute inset-x-10 top-0 h-px" aria-hidden="true" />
         <div className="mb-6 flex flex-col items-center gap-3 text-center">
           <Logo size={52} showText={false} />
           <div>
