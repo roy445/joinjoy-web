@@ -3,7 +3,8 @@ import Link from "next/link";
 import { getCurrentUser } from "@/lib/auth";
 import {
   LayoutDashboard, Users, KeyRound, ClipboardCheck, CalendarX, MessageSquare,
-  MessagesSquare, Flag, ShieldBan, Megaphone, ScrollText, ShieldQuestion,
+  MessagesSquare, Flag, ShieldBan, Megaphone, ScrollText,   ShieldQuestion, Sparkles,
+
 } from "lucide-react";
 
 const navItems = [
@@ -19,6 +20,7 @@ const navItems = [
   { href: "/admin/appeals", label: "帳號申訴", icon: ShieldQuestion },
   { href: "/admin/announcements", label: "全站公告", icon: Megaphone },
   { href: "/admin/logs", label: "操作日誌", icon: ScrollText },
+  { href: "/admin/honors", label: "榮譽商城", icon: Sparkles },
 ];
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {

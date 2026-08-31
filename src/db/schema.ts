@@ -33,6 +33,7 @@ export const users = pgTable("users", {
   groupCreateCredits: integer("group_create_credits").notNull().default(0),
   groupGuidelinesAgreedAt: timestamp("group_guidelines_agreed_at"),
   creditScore: numeric("credit_score", { precision: 6, scale: 2 }).notNull().default("100"),
+  jCoins: integer("j_coins").notNull().default(0),
   isBlacklisted: boolean("is_blacklisted").notNull().default(false),
   noShowCount: integer("no_show_count").notNull().default(0),
   createdAt: timestamp("created_at").notNull().defaultNow(),
@@ -363,4 +364,76 @@ export const adminLogs = pgTable("admin_logs", {
   targetId: integer("target_id"),
   detail: text("detail"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// ---------- Honor mall / collectibles ----------
+export const honorItems = pgTable("honor_items", {
+  id: serial("id").primaryKey(),
+  name: varchar("name", { length: 120 }).notNull(),
+  subtitle: varchar("subtitle", { length: 160 }),
+  description: text("description").notNull(),
+  story: text("story"),
+  type: varchar("type", { length: 20 }).notNull(), // frame | title | badge
+  price: integer("price").notNull().default(0),
+  rewardBonusPercent: integer("reward_bonus_percent").notNull().default(0),
+  previewImageUrl: text("preview_image_url"),
+  effectConfig: jsonb("effect_config").$type<Record<string, unknown>>().default({}),
+  obtainConfig: jsonb("obtain_config").$type<Record<string, unknown>>().default({}),
+  isPurchasable: boolean("is_purchasable").notNull().default(true),
+  isFree: boolean("is_free").notNull().default(false),
+  isActivityOnly: boolean("is_activity_only").notNull().default(false),
+  isHolidayOnly: boolean("is_holiday_only").notNull().default(false),
+  isTimeLimitedSale: boolean("is_time_limited_sale").notNull().default(false),
+  isTimeLimitedUse: boolean("is_time_limited_use").notNull().default(false),
+  startsAt: timestamp("starts_at"),
+  endsAt: timestamp("ends_at"),
+  isPermanent: boolean("is_permanent").notNull().default(true),
+  isLimited: boolean("is_limited").notNull().default(false),
+  limitQuantity: integer("limit_quantity"),
+  soldQuantity: integer("sold_quantity").notNull().default(0),
+  isFeatured: boolean("is_featured").notNull().default(false),
+  isActive: boolean("is_active").notNull().default(true),
+  allowDuplicate: boolean("allow_duplicate").notNull().default(false),
+  createdBy: integer("created_by").references(() => users.id),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const honorOwnerships = pgTable("honor_ownerships", {
+  id: serial("id").primaryKey(),
+  itemId: integer("item_id").notNull().references(() => honorItems.id, { onDelete: "cascade" }),
+  userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  source: varchar("source", { length: 30 }).notNull(), // purchase | grant | unlock | activity
+  sourceRef: varchar("source_ref", { length: 120 }),
+  expiresAt: timestamp("expires_at"),
+  revokedAt: timestamp("revoked_at"),
+  acquiredAt: timestamp("acquired_at").notNull().defaultNow(),
+});
+
+export const honorEquipments = pgTable("honor_equipments", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  type: varchar("type", { length: 20 }).notNull(),
+  itemId: integer("item_id").notNull().references(() => honorItems.id, { onDelete: "cascade" }),
+  equippedAt: timestamp("equipped_at").notNull().defaultNow(),
+});
+
+export const honorTransactions = pgTable("honor_transactions", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id),
+  itemId: integer("item_id").references(() => honorItems.id),
+  type: varchar("type", { length: 30 }).notNull(), // purchase | grant | equip | unequip | coin_adjustment | reward
+  amount: integer("amount").notNull().default(0),
+  balanceAfter: integer("balance_after").notNull().default(0),
+  reason: text("reason"),
+  actorId: integer("actor_id").references(() => users.id),
+  metadata: jsonb("metadata").$type<Record<string, unknown>>().default({}),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const honorSettings = pgTable("honor_settings", {
+  id: serial("id").primaryKey(),
+  maxRewardBonusPercent: integer("max_reward_bonus_percent").notNull().default(30),
+  updatedBy: integer("updated_by").references(() => users.id),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });

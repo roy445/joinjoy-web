@@ -160,7 +160,7 @@ export default async function HomePage({
             <EmptyState icon="🔍" title="找不到符合條件的活動" subtitle="試試調整搜尋關鍵字或篩選條件" />
           ) : (
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              {searchResults.map((e) => <EventCard key={e.id} event={e} />)}
+              {searchResults.map((e, index) => <EventCard key={e.id} event={e} index={index} />)}
             </div>
           )}
         </section>
@@ -171,21 +171,21 @@ export default async function HomePage({
       <section>
         <SectionTitle eyebrow="TRENDING NOW" title="🔥 熱門活動" action={<Link href="/?sort=popular#search-results" className="flex items-center gap-1 text-sm font-semibold text-brand-600">更多 <ArrowUpRight size={14} /></Link>} />
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {hot.map((e) => <EventCard key={e.id} event={e} />)}
+          {hot.map((e, index) => <EventCard key={e.id} event={e} index={index} />)}
         </div>
       </section>
 
       <section>
         <SectionTitle eyebrow="JUST ANNOUNCED" title="🆕 最新活動" action={<Link href="/?sort=latest#search-results" className="flex items-center gap-1 text-sm font-semibold text-brand-600">更多 <ArrowUpRight size={14} /></Link>} />
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {latest.map((e) => <EventCard key={e.id} event={e} />)}
+          {latest.map((e, index) => <EventCard key={e.id} event={e} index={index} />)}
         </div>
       </section>
 
       <section>
         <SectionTitle eyebrow="DON'T MISS OUT" title="⏰ 即將開始" action={<Link href="/?sort=upcoming#search-results" className="flex items-center gap-1 text-sm font-semibold text-brand-600">更多 <ArrowUpRight size={14} /></Link>} />
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {upcoming.map((e) => <EventCard key={e.id} event={e} />)}
+          {upcoming.map((e, index) => <EventCard key={e.id} event={e} index={index} />)}
         </div>
       </section>
 
