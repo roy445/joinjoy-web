@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { EVENT_TAGS } from "@/lib/constants";
 import { timeAgo } from "@/lib/utils";
+import { AvatarDecoration } from "@/components/avatar-decoration";
 
 export default function SettingsPage() {
   const [user, setUser] = useState<any>(null);
@@ -18,6 +19,8 @@ export default function SettingsPage() {
   const [message, setMessage] = useState("");
   const [uploading, setUploading] = useState(false);
   const [appeals, setAppeals] = useState<any[]>([]);
+  const [frameInventory, setFrameInventory] = useState<any[]>([]);
+  const [selectedFrame, setSelectedFrame] = useState<string | null>(null);
   const [showAppealModal, setShowAppealModal] = useState<"suspend" | "blacklist" | null>(null);
 
   const [pwForm, setPwForm] = useState({ currentPassword: "", newPassword: "", confirm: "" });
@@ -27,9 +30,10 @@ export default function SettingsPage() {
   const [copiedUserId, setCopiedUserId] = useState(false);
 
   function loadUser() {
-    fetch("/api/users/me").then((r) => (r.ok ? r.json() : null)).then((d) => {
+    fetch("/api/users/me", { cache: "no-store" }).then((r) => (r.ok ? r.json() : null)).then((d) => {
       if (!d) return;
       setUser(d.user);
+      setSelectedFrame(d.user.activeAvatarFrame || null);
       setForm({
         name: d.user.name || "",
         bio: d.user.bio || "",
@@ -40,11 +44,15 @@ export default function SettingsPage() {
       });
     });
   }
+  function loadFrames() {
+    fetch("/api/inventory", { cache: "no-store" }).then((r) => (r.ok ? r.json() : { inventory: [] })).then((d) => setFrameInventory((d.inventory || []).filter((item: any) => item.type === "frame")));
+  }
   function loadAppeals() {
     fetch("/api/appeals").then((r) => (r.ok ? r.json() : { appeals: [] })).then((d) => setAppeals(d.appeals || []));
   }
   useEffect(() => {
     loadUser();
+    loadFrames();
     loadAppeals();
   }, []);
 
@@ -73,10 +81,10 @@ export default function SettingsPage() {
       const res = await fetch("/api/users/me", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...form, gender: form.gender || null, age: form.age ? Number(form.age) : null }),
+        body: JSON.stringify({ ...form, activeAvatarFrame: selectedFrame, gender: form.gender || null, age: form.age ? Number(form.age) : null }),
       });
       const d = await res.json();
-      if (res.ok) setMessage("已儲存變更！");
+      if (res.ok) { const nextUser = d.user || { ...user, activeAvatarFrame: selectedFrame }; setUser(nextUser); setSelectedFrame(nextUser.activeAvatarFrame || null); window.dispatchEvent(new CustomEvent("joinjoy:user-updated")); setMessage("已儲存變更！"); }
       else setMessage(d.error);
     } finally {
       setSaving(false);
@@ -229,6 +237,15 @@ export default function SettingsPage() {
         <button disabled={saving} onClick={save} className="btn-brand flex items-center justify-center gap-2 rounded-full py-3 text-sm font-bold disabled:opacity-50">
           {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />} 儲存變更
         </button>
+      </div>
+
+      {/* Avatar decoration */}
+      <div className="card-surface rounded-3xl p-6">
+        <div className="flex items-start justify-between gap-3"><div><h3 className="font-display font-bold text-main">頭像框設定</h3><p className="mt-1 text-sm text-soft">原始頭像會保持不變，只有外圍裝飾會套用到你的頭像上。</p></div><Link href="/shop" className="rounded-full bg-brand-500/10 px-3 py-2 text-xs font-bold text-brand-700 dark:text-brand-300">前往商城</Link></div>
+        <div className="mt-5 flex items-center gap-4 rounded-2xl bg-app-soft p-4"><AvatarDecoration src={form.avatarUrl || `https://api.dicebear.com/9.x/notionists/svg?seed=${user.id}`} alt={user.name} frameName={selectedFrame} size="lg" /><div><p className="font-bold text-main">目前預覽</p><p className="mt-1 text-sm text-brand-600">{selectedFrame || "尚未套用頭像框"}</p><p className="mt-2 text-xs text-soft">可以在這裡套用其他已購買的頭像框。</p></div></div>
+        <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">{frameInventory.map((frame) => <button type="button" key={frame.itemId} onClick={() => setSelectedFrame(frame.name)} className={`rounded-2xl border p-3 text-left transition ${selectedFrame === frame.name ? "border-brand-500 bg-brand-500/10 ring-2 ring-brand-500/20" : "border-[var(--color-border)] bg-app-soft hover:border-brand-300"}`}><AvatarDecoration src={form.avatarUrl || `https://api.dicebear.com/9.x/notionists/svg?seed=${user.id}`} frameName={frame.name} size="sm" /><span className="mt-2 block truncate text-xs font-bold text-main">{frame.name}</span></button>)}{frameInventory.length === 0 && <div className="col-span-full rounded-2xl border border-dashed border-[var(--color-border)] p-5 text-center text-sm text-soft">目前沒有已購買的頭像框，請先到商城選購。</div>}</div>
+        <button type="button" onClick={() => setSelectedFrame(null)} className="mt-4 text-xs font-bold text-soft underline-offset-4 hover:text-coral-500 hover:underline">卸下目前頭像框</button>
+        <p className="mt-4 rounded-xl bg-brand-500/10 px-3 py-2 text-xs font-semibold text-brand-700 dark:text-brand-300">提示：其他買過的頭像框，可以在個人設定這裡套用。</p>
       </div>
 
       {/* Password / security */}

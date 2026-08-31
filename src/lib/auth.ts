@@ -1,7 +1,7 @@
 import { cookies } from "next/headers";
 import crypto from "crypto";
 import { db } from "@/db";
-import { sessions, users } from "@/db/schema";
+import { sessions, users, shopItems, userInventory } from "@/db/schema";
 import { eq, and, gt } from "drizzle-orm";
 
 export const SESSION_COOKIE = "joinjoy_session";
@@ -108,7 +108,12 @@ export async function getCurrentUser(): Promise<SessionUser | null> {
         .where(eq(users.id, userId))
         .limit(1);
       
-      return rows[0] ?? null;
+      const sessionUser = rows[0];
+      if (sessionUser?.activeAvatarFrame) {
+        const [ownedFrame] = await db.select({ name: shopItems.name }).from(userInventory).innerJoin(shopItems, eq(userInventory.itemId, shopItems.id)).where(and(eq(userInventory.userId, sessionUser.id), eq(shopItems.type, "frame"), eq(shopItems.name, sessionUser.activeAvatarFrame))).limit(1);
+        if (!ownedFrame) sessionUser.activeAvatarFrame = null;
+      }
+      return sessionUser ?? null;
     } catch (dbError) {
       console.error("Database schema mismatch, falling back to basic user info:", dbError);
       // Fallback: only select columns that are guaranteed to exist in older versions

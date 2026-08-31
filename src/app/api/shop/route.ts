@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { users, shopItems, userInventory } from "@/db/schema";
-import { eq, and } from "drizzle-orm";
+import { eq, and, gt, sql } from "drizzle-orm";
 import { requireUser } from "@/lib/auth";
 import { errorResponse } from "@/lib/api";
 
@@ -38,11 +38,12 @@ export async function POST(req: NextRequest) {
     if (owned) throw new Error("您已經擁有這項商品了");
 
     // Transaction: deduct coins and add to inventory
+    let balanceAfter = profile.jCoins || 0;
     await db.transaction(async (tx) => {
-      await tx
-        .update(users)
-        .set({ jCoins: (profile.jCoins || 0) - item.price })
-        .where(eq(users.id, user.id));
+      await tx.execute(sql`SELECT id FROM users WHERE id = ${user.id} FOR UPDATE`);
+      const [updated] = await tx.update(users).set({ jCoins: sql`${users.jCoins} - ${item.price}` }).where(and(eq(users.id, user.id), gt(users.jCoins, item.price - 1))).returning({ jCoins: users.jCoins });
+      if (!updated) throw new Error("J-幣不足或交易已失效，請重新整理");
+      balanceAfter = updated.jCoins;
 
       await tx.insert(userInventory).values({
         userId: user.id,
@@ -51,7 +52,7 @@ export async function POST(req: NextRequest) {
       });
     });
 
-    return NextResponse.json({ ok: true, message: `成功兌換 ${item.name}！` });
+    return NextResponse.json({ ok: true, message: `成功兌換 ${item.name}！`, jCoins: balanceAfter, itemId: item.id });
   } catch (err) {
     return errorResponse(err);
   }

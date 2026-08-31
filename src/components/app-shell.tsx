@@ -86,6 +86,14 @@ export function AppShell({ user, children }: { user: ClientUser | null; children
   }, [user]);
 
   useEffect(() => {
+    function handleUserUpdated() {
+      router.refresh();
+    }
+    window.addEventListener("joinjoy:user-updated", handleUserUpdated);
+    return () => window.removeEventListener("joinjoy:user-updated", handleUserUpdated);
+  }, [router]);
+
+  useEffect(() => {
     function handleCelebration(event: Event) {
       const detail = (event as CustomEvent<CelebrationDetail>).detail;
       if (!detail?.kind || !detail.title) return;

@@ -36,9 +36,9 @@ export default function ShopPage() {
   const fetchData = useCallback(async () => {
     try {
       const [shopRes, invRes, userRes] = await Promise.all([
-        fetch("/api/shop"),
-        fetch("/api/inventory"),
-        fetch("/api/auth/me"),
+        fetch("/api/shop", { cache: "no-store" }),
+        fetch("/api/inventory", { cache: "no-store" }),
+        fetch("/api/auth/me", { cache: "no-store" }),
       ]);
       const shopData = await shopRes.json();
       const invData = await invRes.json();
@@ -72,13 +72,16 @@ export default function ShopPage() {
       });
       const data = await res.json();
       if (data.ok) {
+        setUser((current: any) => current ? { ...current, jCoins: data.jCoins ?? Math.max(0, Number(current.jCoins || 0) - Number(items.find((item) => item.id === itemId)?.price || 0)) } : current);
+        setInventory((current) => [...current, { itemId, isEquipped: false }]);
+        window.dispatchEvent(new CustomEvent("joinjoy:user-updated"));
         announceCelebration({
           kind: "shop",
           title: "兌換成功！",
           description: data.message || "商品已加入你的榮譽收藏。",
         });
         alert(data.message);
-        await fetchData();
+        void fetchData();
       } else {
         alert(data.error || "購買失敗");
       }
@@ -97,7 +100,10 @@ export default function ShopPage() {
       });
       const data = await res.json();
       if (data.ok) {
-        await fetchData();
+        setUser((current: any) => current ? { ...current, ...(data.user || {}) } : current);
+        setInventory((current) => current.map((entry) => ({ ...entry, isEquipped: entry.itemId === itemId ? !currentlyEquipped : (currentlyEquipped ? entry.isEquipped : false) })));
+        window.dispatchEvent(new CustomEvent("joinjoy:user-updated"));
+        void fetchData();
       } else {
         alert(data.error || "操作失敗");
       }
@@ -128,6 +134,7 @@ export default function ShopPage() {
             <ShoppingBag className="text-coral-500" /> 榮譽商城
           </h1>
           <p className="mt-2 text-soft">使用 J-幣兌換專屬稱號、徽章與頭像框，展現你的社群地位。</p>
+          <p className="mt-3 inline-flex rounded-full bg-brand-500/10 px-3 py-1.5 text-xs font-bold text-brand-700 dark:text-brand-300">提示：其他買過的頭像框，可以到 <a href="/settings" className="ml-1 underline underline-offset-2">個人設定</a> 套用。</p>
         </div>
         
         {user && (

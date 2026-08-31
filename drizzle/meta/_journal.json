@@ -43,6 +43,20 @@
       "when": 1788048000000,
       "tag": "0005_honor_frame_catalog",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1788184514537,
+      "tag": "0006_avatar-decoration-catalog",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1788184545337,
+      "tag": "0007_remove-unowned-admin-frames",
+      "breakpoints": true
     }
   ]
 }

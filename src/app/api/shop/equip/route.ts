@@ -11,6 +11,7 @@ export async function POST(req: NextRequest) {
     const { itemId, action } = await req.json(); // action: 'equip' | 'unequip'
 
     if (!itemId) throw new Error("未指定項目");
+    if (action !== "equip" && action !== "unequip") throw new Error("無效的裝備操作");
 
     // 1. Verify ownership
     const [owned] = await db
@@ -43,6 +44,7 @@ export async function POST(req: NextRequest) {
       updates[field] = owned.itemName;
     }
 
+    let refreshedUser: { jCoins: number; activeAvatarFrame: string | null } | undefined;
     await db.transaction(async (tx) => {
       // Set all items of the same type to not equipped in inventory
       // (Optional: depending on whether we want to track equipment in inventory table too)
@@ -65,9 +67,11 @@ export async function POST(req: NextRequest) {
 
       // Update user table for quick visual access
       await tx.update(users).set(updates).where(eq(users.id, user.id));
+      const [current] = await tx.select({ jCoins: users.jCoins, activeAvatarFrame: users.activeAvatarFrame }).from(users).where(eq(users.id, user.id)).limit(1);
+      refreshedUser = current;
     });
 
-    return NextResponse.json({ ok: true, message: action === "unequip" ? "已卸下" : "裝備成功！" });
+    return NextResponse.json({ ok: true, message: action === "unequip" ? "已卸下" : "裝備成功！", user: refreshedUser });
   } catch (err) {
     return errorResponse(err);
   }
