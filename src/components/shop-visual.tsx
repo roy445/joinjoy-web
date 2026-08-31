@@ -3,6 +3,7 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { Maximize2, X } from "lucide-react";
 import { useState } from "react";
+import { AvatarDecoration } from "@/components/avatar-decoration";
 
 export type ShopVisualItem = { id: number; name: string; type: "title" | "badge" | "frame"; description?: string | null; rarity: string; metadata?: Record<string, unknown> | null };
 
@@ -29,8 +30,7 @@ export function ShopVisual({ item, large = false }: { item: ShopVisualItem; larg
   const particleCount = large ? Number(metadata.particleCount ?? 28) : Number(metadata.particleCount ?? 12);
   return <div className={`relative flex items-center justify-center ${large ? "h-80 w-full" : "h-full w-full"}`}>
     <div className={`absolute ${large ? "inset-16" : "inset-10"} rounded-full ${palette.glow} blur-3xl animate-glow-pulse`} />
-    {Array.from({ length: particleCount }).map((_, i) => <span key={i} className={`absolute ${palette.particle} shop-particle`} style={{ left: `${10 + ((i * 41) % 80)}%`, top: `${8 + ((i * 53) % 82)}%`, animationDelay: `${(i % 9) * 0.22}s`, animationDuration: `${2 + (i % 5) * 0.5}s` }}>{palette.glyphs[i % palette.glyphs.length]}</span>)}
-    {item.type === "title" ? <motion.div whileHover={{ scale: 1.06 }} className={`relative z-10 rounded-2xl bg-white/90 px-6 py-4 text-center text-xl font-black text-brand-700 shadow-xl dark:bg-slate-800 dark:text-brand-200 ${item.rarity === "legendary" ? "animate-gold-glow" : ""}`}>{item.name}<span className="mt-1 block text-[10px] font-bold tracking-[0.2em] text-soft">TITLE</span></motion.div> : <motion.div whileHover={{ scale: 1.06, rotate: item.type === "badge" ? 8 : 0 }} className={`relative z-10 flex items-center justify-center rounded-full bg-white shadow-xl dark:bg-slate-800 ${item.type === "frame" ? `${large ? "h-56 w-56" : "h-32 w-32"} border-[6px] bg-[#f4d7c4] bg-gradient-to-br ${palette.border}` : `${large ? "h-44 w-44" : "h-28 w-28"} border-4 border-white dark:border-slate-600`}`}><span className={large ? "text-7xl" : "text-5xl"}>{item.type === "badge" ? "✦" : "🧑🏻"}</span>{item.type === "frame" && <span className={`absolute inset-[-18px] rounded-full border border-dashed ${palette.particle} animate-orbit`} />}</motion.div>}
+    {item.type === "frame" ? <AvatarDecoration frameName={item.name} size={large ? "lg" : "md"} preview={large} /> : <>{Array.from({ length: particleCount }).map((_, i) => <span key={i} className={`absolute ${palette.particle} shop-particle`} style={{ left: `${10 + ((i * 41) % 80)}%`, top: `${8 + ((i * 53) % 82)}%`, animationDelay: `${(i % 9) * 0.22}s`, animationDuration: `${2 + (i % 5) * 0.5}s` }}>{palette.glyphs[i % palette.glyphs.length]}</span>)}{item.type === "title" ? <motion.div whileHover={{ scale: 1.06 }} className={`relative z-10 rounded-2xl bg-white/90 px-6 py-4 text-center text-xl font-black text-brand-700 shadow-xl dark:bg-slate-800 dark:text-brand-200 ${item.rarity === "legendary" ? "animate-gold-glow" : ""}`}>{item.name}<span className="mt-1 block text-[10px] font-bold tracking-[0.2em] text-soft">TITLE</span></motion.div> : <motion.div whileHover={{ scale: 1.06, rotate: 8 }} className="relative z-10 flex h-28 w-28 items-center justify-center rounded-full border-4 border-white bg-white shadow-xl dark:border-slate-600 dark:bg-slate-800"><span className="text-5xl">✦</span></motion.div>}</>}
   </div>;
 }
 
