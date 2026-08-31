@@ -25,12 +25,13 @@ const themeOverrides: Record<string, Partial<(typeof palettes)["legendary"]>> = 
 
 export function ShopVisual({ item, large = false }: { item: ShopVisualItem; large?: boolean }) {
   const metadata = item.metadata ?? {};
+  const themeKey = typeof metadata.theme === "string" ? metadata.theme : "";
   const basePalette = palettes[item.rarity] ?? palettes.rare;
-  const palette = { ...basePalette, ...(themeOverrides[String(metadata.theme ?? "")] ?? {}) };
+  const palette = { ...basePalette, ...(themeOverrides[themeKey] ?? {}) };
   const particleCount = large ? Number(metadata.particleCount ?? 28) : Number(metadata.particleCount ?? 12);
   return <div className={`relative flex items-center justify-center ${large ? "h-80 w-full" : "h-full w-full"}`}>
     <div className={`absolute ${large ? "inset-16" : "inset-10"} rounded-full ${palette.glow} blur-3xl animate-glow-pulse`} />
-    {item.type === "frame" ? <AvatarDecoration frameName={item.name} size={large ? "lg" : "md"} preview={large} /> : <>{Array.from({ length: particleCount }).map((_, i) => <span key={i} className={`absolute ${palette.particle} shop-particle`} style={{ left: `${10 + ((i * 41) % 80)}%`, top: `${8 + ((i * 53) % 82)}%`, animationDelay: `${(i % 9) * 0.22}s`, animationDuration: `${2 + (i % 5) * 0.5}s` }}>{palette.glyphs[i % palette.glyphs.length]}</span>)}{item.type === "title" ? <motion.div whileHover={{ scale: 1.06 }} className={`relative z-10 rounded-2xl bg-white/90 px-6 py-4 text-center text-xl font-black text-brand-700 shadow-xl dark:bg-slate-800 dark:text-brand-200 ${item.rarity === "legendary" ? "animate-gold-glow" : ""}`}>{item.name}<span className="mt-1 block text-[10px] font-bold tracking-[0.2em] text-soft">TITLE</span></motion.div> : <motion.div whileHover={{ scale: 1.06, rotate: 8 }} className="relative z-10 flex h-28 w-28 items-center justify-center rounded-full border-4 border-white bg-white shadow-xl dark:border-slate-600 dark:bg-slate-800"><span className="text-5xl">✦</span></motion.div>}</>}
+    {item.type === "frame" ? <AvatarDecoration frameName={item.name} metadata={item.metadata} size="lg" preview={large} /> : <>{Array.from({ length: particleCount }).map((_, i) => <span key={i} className={`absolute ${palette.particle} shop-particle`} style={{ left: `${10 + ((i * 41) % 80)}%`, top: `${8 + ((i * 53) % 82)}%`, animationDelay: `${(i % 9) * 0.22}s`, animationDuration: `${2 + (i % 5) * 0.5}s` }}>{palette.glyphs[i % palette.glyphs.length]}</span>)}{item.type === "title" ? <motion.div whileHover={{ scale: 1.06 }} className={`relative z-10 rounded-2xl bg-white/90 px-6 py-4 text-center text-xl font-black text-brand-700 shadow-xl dark:bg-slate-800 dark:text-brand-200 ${item.rarity === "legendary" ? "animate-gold-glow" : ""}`}>{item.name}<span className="mt-1 block text-[10px] font-bold tracking-[0.2em] text-soft">TITLE</span></motion.div> : <motion.div whileHover={{ scale: 1.06, rotate: 8 }} className="relative z-10 flex h-28 w-28 items-center justify-center rounded-full border-4 border-white bg-white shadow-xl dark:border-slate-600 dark:bg-slate-800"><span className="text-5xl">✦</span></motion.div>}</>}
   </div>;
 }
 

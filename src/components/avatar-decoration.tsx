@@ -17,7 +17,15 @@ const themes: Record<string, Theme> = {
   "🌠 JoinJoy 星域": { key: "joinjoy", colors: ["#35e5cf", "#fff2be", "#6d5eff"], count: 52, glyph: "cosmos" },
 };
 
-function themeFor(name?: string | null) { return Object.entries(themes).find(([label]) => name === label || name?.includes(label.slice(2)))?.[1] ?? null; }
+function themeFor(name?: string | null, metadata?: Record<string, unknown> | null) {
+  const metadataTheme = typeof metadata?.theme === "string" ? metadata.theme : "";
+  const direct = Object.values(themes).find((theme) => theme.key === metadataTheme);
+  if (direct) return direct;
+  const aliases: Array<[string, string]> = [["晨露", "breeze"], ["清風", "breeze"], ["珊瑚", "star"], ["星芒", "star"], ["泡泡", "ocean"], ["深海", "ocean"], ["糖果", "candy"], ["銀河", "galaxy"], ["旅途星河", "galaxy"], ["雷霆", "thunder"], ["閃電", "thunder"], ["焰心", "flame"], ["火焰", "flame"], ["金色", "gold"], ["黃金", "gold"], ["時空", "rift"], ["裂隙", "rift"], ["星域", "joinjoy"]];
+  const match = aliases.find(([token]) => name?.includes(token));
+  if (match) return Object.values(themes).find((theme) => theme.key === match[1]) ?? null;
+  return Object.entries(themes).find(([label]) => name === label || name?.includes(label.slice(2)))?.[1] ?? null;
+}
 
 function ParticleCanvas({ theme, full }: { theme: Theme; full: boolean }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -52,9 +60,9 @@ function OrnamentSvg({ theme }: { theme: Theme }) {
   return <svg viewBox="0 0 200 200" className="pointer-events-none absolute inset-[-15%] z-30 h-[130%] w-[130%]"><circle cx="100" cy="100" r="88" fill="none" stroke={c[1]} strokeWidth="2" /></svg>;
 }
 
-export function AvatarDecoration({ src, alt = "", frameName, size = "md", preview = false }: { src?: string | null; alt?: string; frameName?: string | null; size?: "sm" | "md" | "lg"; preview?: boolean }) {
+export function AvatarDecoration({ src, alt = "", frameName, metadata, size = "md", preview = false }: { src?: string | null; alt?: string; frameName?: string | null; metadata?: Record<string, unknown> | null; size?: "sm" | "md" | "lg"; preview?: boolean }) {
   const dims = size === "sm" ? "h-9 w-9" : size === "lg" ? "h-36 w-36" : "h-12 w-12";
   if (!frameName) return <div className={`relative inline-flex shrink-0 overflow-hidden rounded-full bg-transparent ${dims}`}>{src ? <img src={src} alt={alt} className="h-full w-full object-cover" /> : <div className="h-full w-full" aria-hidden="true" />}</div>;
-  const theme = themeFor(frameName) ?? themes["🌿 清風漫遊"];
-  return <div className={`avatar-decoration relative inline-flex shrink-0 items-center justify-center ${dims}`} data-theme={theme.key} aria-label={frameName}><div className="absolute inset-[-8%] rounded-full opacity-30 blur-md" style={{ background: `radial-gradient(circle, ${theme.colors[1]}, transparent 68%)` }} /><ParticleCanvas theme={theme} full={preview || size === "lg"} /><OrnamentSvg theme={theme} /><motion.div className="relative z-10 h-[78%] w-[78%] overflow-hidden rounded-full bg-[#f3d4c4] ring-2 ring-white/90 shadow-[0_5px_22px_rgba(18,46,43,.28)]" animate={theme.key === "joinjoy" ? { scale: [1, 1.02, 1] } : undefined} transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}>{src ? <img src={src} alt={alt} className="h-full w-full object-cover" /> : <div className="h-full w-full" aria-hidden="true" />}</motion.div></div>;
+  const theme = themeFor(frameName, metadata) ?? themes["🌿 清風漫遊"];
+  return <div className={`avatar-decoration relative inline-flex shrink-0 items-center justify-center ${dims}`} data-theme={theme.key} data-decoration-name={frameName} aria-label={frameName}><div className="absolute inset-[-8%] rounded-full opacity-30 blur-md" style={{ background: `radial-gradient(circle, ${theme.colors[1]}, transparent 68%)` }} /><ParticleCanvas theme={theme} full={preview || size === "lg"} /><OrnamentSvg theme={theme} /><motion.div className="relative z-10 h-[78%] w-[78%] overflow-hidden rounded-full bg-[#f3d4c4] ring-2 ring-white/90 shadow-[0_5px_22px_rgba(18,46,43,.28)]" animate={theme.key === "joinjoy" ? { scale: [1, 1.02, 1] } : undefined} transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}>{src ? <img src={src} alt={alt} className="h-full w-full object-cover" /> : <div className="h-full w-full" aria-hidden="true" />}</motion.div></div>;
 }
