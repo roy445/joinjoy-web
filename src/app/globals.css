@@ -141,6 +141,19 @@
     from { transform: rotate(0deg); }
     to { transform: rotate(360deg); }
   }
+  @keyframes shop-particle {
+    0%, 100% { transform: translate3d(0, 3px, 0) scale(.75); opacity: .35; }
+    50% { transform: translate3d(0, -7px, 0) scale(1.15); opacity: 1; }
+  }
+  @keyframes avatar-orbit {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+  }
+  @keyframes avatar-orbit-reverse {
+    from { transform: rotate(360deg) scale(1); }
+    50% { transform: rotate(180deg) scale(1.05); }
+    to { transform: rotate(0deg) scale(1); }
+  }
 }
 
 .animate-gold-glow {
@@ -195,6 +208,9 @@
 .animate-particle {
   animation: particle-float 2s ease-out infinite;
 }
+.shop-particle { animation: shop-particle 2.6s ease-in-out infinite; }
+.avatar-orbit { animation: avatar-orbit 8s linear infinite; }
+.avatar-orbit-reverse { animation: avatar-orbit-reverse 6s ease-in-out infinite; }
 
 .honor-frame-preview {
   position: relative;
@@ -249,7 +265,10 @@
   .auth-card-shell,
   .honor-frame-preview::before,
   .honor-frame-preview::after,
-  .honor-frame-legendary .honor-frame-orbit {
+  .honor-frame-legendary .honor-frame-orbit,
+  .shop-particle,
+  .avatar-orbit,
+  .avatar-orbit-reverse {
     animation: none;
   }
 }

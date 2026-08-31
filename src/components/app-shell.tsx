@@ -25,6 +25,7 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { NotificationBell } from "@/components/notification-bell";
 import { BetaBadge } from "@/components/beta-badge";
 import { UserHonor } from "@/components/user-honor";
+import { AvatarDecoration } from "@/components/avatar-decoration";
 import { JCoin } from "@/components/j-coin";
 import { JueJueChat } from "@/components/juejue-chat";
 import { HonorNotificationListener } from "@/components/honor-notification-listener";
@@ -211,11 +212,7 @@ export function AppShell({ user, children }: { user: ClientUser | null; children
       <div className="rounded-2xl border border-[var(--color-border)] bg-app-soft p-3">
         {user ? (
           <div className="flex items-center gap-3">
-            <img
-              src={user.avatarUrl || `https://api.dicebear.com/9.x/notionists/svg?seed=${user.id}`}
-              alt={user.name}
-              className="h-10 w-10 shrink-0 rounded-full object-cover"
-            />
+            <AvatarDecoration src={user.avatarUrl || `https://api.dicebear.com/9.x/notionists/svg?seed=${user.id}`} alt={user.name} frameName={user.activeAvatarFrame} size="sm" />
             <div className="min-w-0 flex-1">
               <UserHonor
                 name={user.name}
@@ -308,11 +305,7 @@ export function AppShell({ user, children }: { user: ClientUser | null; children
             )}
             {user && (
               <Link href={`/profile/${user.id}`} className="hidden shrink-0 md:block">
-                <img
-                  src={user.avatarUrl || `https://api.dicebear.com/9.x/notionists/svg?seed=${user.id}`}
-                  alt={user.name}
-                  className="h-9 w-9 rounded-full object-cover ring-2 ring-brand-200"
-                />
+                <AvatarDecoration src={user.avatarUrl || `https://api.dicebear.com/9.x/notionists/svg?seed=${user.id}`} alt={user.name} frameName={user.activeAvatarFrame} size="sm" />
               </Link>
             )}
           </div>

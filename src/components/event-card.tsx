@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { MapPin, Users, Calendar, Clock } from "lucide-react";
 import { formatDate, eventStatusLabel } from "@/lib/utils";
 import { UserHonor } from "@/components/user-honor";
+import { AvatarDecoration } from "@/components/avatar-decoration";
 
 export type EventCardData = {
   id: number;
@@ -25,6 +26,7 @@ export type EventCardData = {
   hostRole?: string | null;
   hostTitle?: string | null;
   hostBadge?: string | null;
+  hostAvatarFrame?: string | null;
 };
 
 const statusStyle: Record<string, string> = {
@@ -84,11 +86,7 @@ export function EventCard({ event }: { event: EventCardData }) {
       <div className="flex flex-1 flex-col gap-2 p-4">
         <h3 className="line-clamp-2 font-display text-base font-bold text-main">{event.title}</h3>
         <div className="flex items-center gap-1.5 text-xs text-soft">
-          <img
-            src={event.hostAvatar || `https://api.dicebear.com/9.x/notionists/svg?seed=${event.hostName}`}
-            alt=""
-            className="h-5 w-5 rounded-full object-cover"
-          />
+          <AvatarDecoration src={event.hostAvatar || `https://api.dicebear.com/9.x/notionists/svg?seed=${event.hostName}`} alt={event.hostName || "揪主"} frameName={event.hostAvatarFrame} size="sm" />
           <UserHonor
             name={event.hostName || "揪主"}
             role={event.hostRole}

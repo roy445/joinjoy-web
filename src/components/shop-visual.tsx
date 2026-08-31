@@ -6,20 +6,30 @@ import { useState } from "react";
 
 export type ShopVisualItem = { id: number; name: string; type: "title" | "badge" | "frame"; description?: string | null; rarity: string; metadata?: Record<string, unknown> | null };
 
-const palettes: Record<string, { border: string; glow: string; particle: string }> = {
-  common: { border: "from-slate-300 via-white to-slate-400", glow: "bg-slate-300/20", particle: "text-slate-300" },
-  rare: { border: "from-[#5ad5c5] via-[#e9fff8] to-[#498cff]", glow: "bg-[#5ad5c5]/30", particle: "text-[#a4f2e4]" },
-  epic: { border: "from-[#ff9b78] via-[#ffe7d2] to-[#a974ff]", glow: "bg-[#ff9b78]/30", particle: "text-[#ffd0bd]" },
-  legendary: { border: "from-[#bf953f] via-[#fff1a8] to-[#aa771c]", glow: "bg-[#f5d98a]/35", particle: "text-[#ffe9a4]" },
+const palettes: Record<string, { border: string; glow: string; particle: string; glyphs: string[] }> = {
+  common: { border: "from-[#75c9a0] via-[#d9f4c7] to-[#5b9f83]", glow: "bg-[#75c9a0]/20", particle: "text-[#b5e5bc]", glyphs: ["🌿", "·", "✦"] },
+  rare: { border: "from-[#5ad5c5] via-[#e9fff8] to-[#498cff]", glow: "bg-[#5ad5c5]/30", particle: "text-[#a4f2e4]", glyphs: ["⭐", "✦", "·"] },
+  epic: { border: "from-[#ff9b78] via-[#ffe7d2] to-[#a974ff]", glow: "bg-[#ff9b78]/30", particle: "text-[#ffd0bd]", glyphs: ["♥", "✦", "●"] },
+  legendary: { border: "from-[#bf953f] via-[#fff1a8] to-[#aa771c]", glow: "bg-[#f5d98a]/35", particle: "text-[#ffe9a4]", glyphs: ["✦", "★", "·"] },
+};
+const themeOverrides: Record<string, Partial<(typeof palettes)["legendary"]>> = {
+  breeze: { border: "from-[#75c9a0] via-[#d9f4c7] to-[#5b9f83]", glow: "bg-[#75c9a0]/20", particle: "text-[#b5e5bc]", glyphs: ["🌿", "·", "✦"] },
+  ocean: { border: "from-[#3da9dd] via-[#b6f2ff] to-[#2867b2]", glow: "bg-[#3da9dd]/25", particle: "text-[#b6f2ff]", glyphs: ["○", "◦", "✧"] },
+  galaxy: { border: "from-[#5c5be2] via-[#e4c4ff] to-[#263f9d]", glow: "bg-[#745bff]/30", particle: "text-[#e4d4ff]", glyphs: ["✦", "·", "★"] },
+  thunder: { border: "from-[#75eaff] via-[#fffbd0] to-[#5f6eff]", glow: "bg-[#75eaff]/25", particle: "text-[#e6fcff]", glyphs: ["⚡", "·", "✧"] },
+  flame: { border: "from-[#ff784d] via-[#ffd16b] to-[#b92e2e]", glow: "bg-[#ff784d]/25", particle: "text-[#ffd16b]", glyphs: ["🔥", "·", "✦"] },
+  rift: { border: "from-[#745bff] via-[#d4bbff] to-[#27c6de]", glow: "bg-[#745bff]/30", particle: "text-[#d4bbff]", glyphs: ["·", "✦", "◌"] },
+  joinjoy: { border: "from-[#35e5cf] via-[#fff2be] to-[#6d5eff]", glow: "bg-[#35e5cf]/30", particle: "text-[#dffff7]", glyphs: ["✦", "★", "·"] },
 };
 
 export function ShopVisual({ item, large = false }: { item: ShopVisualItem; large?: boolean }) {
-  const palette = palettes[item.rarity] ?? palettes.rare;
   const metadata = item.metadata ?? {};
+  const basePalette = palettes[item.rarity] ?? palettes.rare;
+  const palette = { ...basePalette, ...(themeOverrides[String(metadata.theme ?? "")] ?? {}) };
   const particleCount = large ? Number(metadata.particleCount ?? 28) : Number(metadata.particleCount ?? 12);
   return <div className={`relative flex items-center justify-center ${large ? "h-80 w-full" : "h-full w-full"}`}>
     <div className={`absolute ${large ? "inset-16" : "inset-10"} rounded-full ${palette.glow} blur-3xl animate-glow-pulse`} />
-    {Array.from({ length: particleCount }).map((_, i) => <span key={i} className={`absolute ${palette.particle} shop-particle`} style={{ left: `${10 + ((i * 41) % 80)}%`, top: `${8 + ((i * 53) % 82)}%`, animationDelay: `${(i % 9) * 0.22}s`, animationDuration: `${2 + (i % 5) * 0.5}s` }}>{i % 3 === 0 ? "✦" : "·"}</span>)}
+    {Array.from({ length: particleCount }).map((_, i) => <span key={i} className={`absolute ${palette.particle} shop-particle`} style={{ left: `${10 + ((i * 41) % 80)}%`, top: `${8 + ((i * 53) % 82)}%`, animationDelay: `${(i % 9) * 0.22}s`, animationDuration: `${2 + (i % 5) * 0.5}s` }}>{palette.glyphs[i % palette.glyphs.length]}</span>)}
     {item.type === "title" ? <motion.div whileHover={{ scale: 1.06 }} className={`relative z-10 rounded-2xl bg-white/90 px-6 py-4 text-center text-xl font-black text-brand-700 shadow-xl dark:bg-slate-800 dark:text-brand-200 ${item.rarity === "legendary" ? "animate-gold-glow" : ""}`}>{item.name}<span className="mt-1 block text-[10px] font-bold tracking-[0.2em] text-soft">TITLE</span></motion.div> : <motion.div whileHover={{ scale: 1.06, rotate: item.type === "badge" ? 8 : 0 }} className={`relative z-10 flex items-center justify-center rounded-full bg-white shadow-xl dark:bg-slate-800 ${item.type === "frame" ? `${large ? "h-56 w-56" : "h-32 w-32"} border-[6px] bg-[#f4d7c4] bg-gradient-to-br ${palette.border}` : `${large ? "h-44 w-44" : "h-28 w-28"} border-4 border-white dark:border-slate-600`}`}><span className={large ? "text-7xl" : "text-5xl"}>{item.type === "badge" ? "✦" : "🧑🏻"}</span>{item.type === "frame" && <span className={`absolute inset-[-18px] rounded-full border border-dashed ${palette.particle} animate-orbit`} />}</motion.div>}
   </div>;
 }
