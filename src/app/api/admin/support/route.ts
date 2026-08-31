@@ -26,6 +26,13 @@ export async function POST(req: NextRequest) {
     const admin = await requireAdmin();
     const body = await req.json().catch(() => null);
     const action = String(body?.action || "");
+    if (action === "manual") {
+      const title = sanitize(String(body.title || ""), 180);
+      const content = sanitize(String(body.message || ""), 2000);
+      if (!title || content.length < 5) throw new Error("請提供公告標題與至少 5 個字的內容");
+      const [announcement] = await db.insert(systemAnnouncements).values({ title, content, kind: "manual", severity: "low", createdBy: admin.id }).returning();
+      return NextResponse.json({ ok: true, announcement });
+    }
     if (action === "publish") {
       const definition = getErrorDefinition(String(body.errorCode || ""));
       if (!definition) throw new Error("請選擇有效錯誤代碼");
