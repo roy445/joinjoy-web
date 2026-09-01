@@ -125,12 +125,22 @@ function weatherDescription(code: number) {
   return "天氣變化";
 }
 
+function taipeiToday() {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Taipei", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
+}
+
+export async function GET(request: NextRequest) {
+  const city = request.nextUrl.searchParams.get("city")?.trim();
+  if (!city) return jsonError("請提供縣市名稱，例如：台北市", 400);
+  return POST(new NextRequest(request.url, { method: "POST", headers: request.headers, body: JSON.stringify({ origin: city, date: taipeiToday() }) }));
+}
+
 export async function POST(request: NextRequest) {
   try {
     const body = (await request.json().catch(() => null)) as WeatherRequest | null;
     const origin = body?.origin?.trim();
-    const date = body?.date?.trim();
-    if (!origin || !date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    const date = body?.date?.trim() || taipeiToday();
+    if (!origin || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
       return jsonError("請提供有效的出發地與日期", 400);
     }
 

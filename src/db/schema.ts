@@ -404,7 +404,7 @@ export const adminLogs = pgTable("admin_logs", {
 
 export const aiProviders = pgTable("ai_providers", {
   id: serial("id").primaryKey(),
-  name: varchar("name", { length: 50 }).notNull().unique(), // openai | gemini | openrouter
+  name: varchar("name", { length: 50 }).notNull().unique(), // gemini only
   apiKey: text("api_key").notNull(),
   model: varchar("model", { length: 100 }).notNull(),
   priority: integer("priority").notNull().default(0),

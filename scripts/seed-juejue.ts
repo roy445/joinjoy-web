@@ -7,17 +7,10 @@ async function main() {
   // 1. Seed AI Providers
   const providers = [
     {
-      name: "openai",
-      model: "gpt-4o-mini",
-      apiKey: process.env.OPENAI_API_KEY || "placeholder",
-      priority: 10,
-      isActive: true,
-    },
-    {
       name: "gemini",
-      model: "gemini-1.5-flash",
+      model: process.env.GEMINI_MODEL || "gemini-2.5-flash",
       apiKey: process.env.GEMINI_API_KEY || "placeholder",
-      priority: 5,
+      priority: 10,
       isActive: true,
     },
   ];

@@ -20,6 +20,7 @@ import {
   Sparkles,
   ShoppingBag,
   Bug,
+  CloudSun,
 } from "lucide-react";
 import { Logo } from "@/components/logo";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -39,6 +40,7 @@ import { cn } from "@/lib/utils";
 const exploreNav = [
   { href: "/", label: "首頁", icon: Home },
   { href: "/planner", label: "AI 出遊規劃", icon: Sparkles },
+  { href: "/weather", label: "縣市天氣", icon: CloudSun },
   { href: "/map", label: "地圖模式", icon: MapPin },
   { href: "/groups", label: "揪團社", icon: Users },
   { href: "/favorites", label: "我的收藏", icon: Bookmark },

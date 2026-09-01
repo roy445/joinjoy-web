@@ -75,7 +75,7 @@ export default function AdminAIPage() {
         <div className="card-surface rounded-[2rem] p-8">
           <div className="mb-6 flex items-center gap-3">
             <PieChart className="text-brand-500" />
-            <h3 className="text-xl font-black text-main">Provider 使用比例</h3>
+            <h3 className="text-xl font-black text-main">Gemini 使用狀況</h3>
           </div>
           <div className="space-y-4">
             {stats.providers.map((p: any) => (
@@ -87,7 +87,7 @@ export default function AdminAIPage() {
                 <div className="h-3 w-full overflow-hidden rounded-full bg-app-soft">
                   <div 
                     className={`h-full rounded-full transition-all duration-1000 ${
-                      p.name === 'openai' ? 'bg-emerald-500' : p.name === 'gemini' ? 'bg-blue-500' : 'bg-purple-500'
+                      p.name === 'gemini' ? 'bg-blue-500' : 'bg-slate-400'
                     }`} 
                     style={{ width: `${p.share}%` }} 
                   />
@@ -129,7 +129,7 @@ export default function AdminAIPage() {
             <thead>
               <tr className="border-b border-brand-100 text-soft font-bold">
                 <th className="pb-4 pr-4">時間</th>
-                <th className="pb-4 pr-4">Provider</th>
+                <th className="pb-4 pr-4">AI 服務</th>
                 <th className="pb-4 pr-4">Model</th>
                 <th className="pb-4">錯誤訊息</th>
               </tr>

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { aiUsageLogs } from "@/db/schema";
-import { sql, gte, eq, desc } from "drizzle-orm";
+import { sql, gte, eq, desc, and } from "drizzle-orm";
 import { requireAdmin } from "@/lib/auth";
 import { errorResponse } from "@/lib/api";
 
@@ -42,7 +42,7 @@ export async function GET() {
     const providerRows = await db.execute(sql`
       SELECT provider, COUNT(*) as count
       FROM ai_usage_logs
-      WHERE created_at >= ${today}
+      WHERE created_at >= ${today} AND provider = 'gemini'
       GROUP BY provider
     `);
 
@@ -55,7 +55,7 @@ export async function GET() {
     // 3. Recent Errors
     const recentErrorRows = await db.select()
       .from(aiUsageLogs)
-      .where(eq(aiUsageLogs.status, "error"))
+      .where(and(eq(aiUsageLogs.provider, "gemini"), eq(aiUsageLogs.status, "error")))
       .orderBy(desc(aiUsageLogs.createdAt))
       .limit(5);
 

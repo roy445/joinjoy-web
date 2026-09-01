@@ -1,7 +1,6 @@
 import { db } from "@/db";
 import { aiProviders, aiUsageLogs } from "@/db/schema";
 import { eq, desc } from "drizzle-orm";
-import { OpenAI } from "openai";
 
 export type AIResponse = {
   message: string;
@@ -46,10 +45,7 @@ function normalizeGeminiModel(model: string | undefined): string {
 }
 
 function envKeyForProvider(name: string): string | undefined {
-  if (name === "openai") return process.env.OPENAI_API_KEY;
-  if (name === "openrouter") return process.env.OPENROUTER_API_KEY;
-  if (name === "gemini") return process.env.GEMINI_API_KEY;
-  return undefined;
+  return name === "gemini" ? process.env.GEMINI_API_KEY : undefined;
 }
 
 /**
@@ -88,13 +84,11 @@ export class AIProviderManager {
     return configured
       .map((provider) => ({
         name: provider.name.toLowerCase(),
-        model: provider.name.toLowerCase() === "gemini"
-          ? normalizeGeminiModel(provider.model)
-          : provider.model.trim(),
+        model: normalizeGeminiModel(provider.model),
         priority: provider.priority,
         apiKey: envKeyForProvider(provider.name.toLowerCase()),
       }))
-      .filter((provider) => Boolean(provider.apiKey));
+      .filter((provider) => provider.name === "gemini" && Boolean(provider.apiKey));
   }
 
   /**
@@ -147,28 +141,6 @@ export class AIProviderManager {
       throw new Error(`Missing server configuration for ${name}`);
     }
 
-    if (name === "openai" || name === "openrouter") {
-      const baseURL = name === "openrouter" ? "https://openrouter.ai/api/v1" : undefined;
-      const client = new OpenAI({ apiKey, baseURL });
-      
-      const completion = await client.chat.completions.create({
-        model,
-        messages,
-        temperature: 0.7,
-      });
-
-      const choice = completion.choices[0];
-      return {
-        message: choice.message.content || "",
-        provider: name,
-        model,
-        usage: completion.usage ? {
-          promptTokens: completion.usage.prompt_tokens,
-          completionTokens: completion.usage.completion_tokens,
-        } : undefined,
-      };
-    }
-
     if (name === "gemini") {
       // Gemini REST path requires models/{model}; normalize old settings first.
       const geminiModel = normalizeGeminiModel(model);
@@ -206,12 +178,10 @@ export class AIProviderManager {
   }
 
   /**
-   * Fallback to environment variables with full support for OpenAI, Gemini, and OpenRouter
+   * Environment fallback using Gemini only.
    */
   private async chatWithEnv(userId: number, messages: AIMessage[]): Promise<AIResponse> {
     const providers = [
-      { name: "openrouter", apiKey: process.env.OPENROUTER_API_KEY, model: process.env.OPENROUTER_MODEL || "google/gemini-3.5-flash-lite" },
-      { name: "openai", apiKey: process.env.OPENAI_API_KEY, model: process.env.OPENAI_MODEL || "gpt-4o-mini" },
       { name: "gemini", apiKey: process.env.GEMINI_API_KEY, model: normalizeGeminiModel(process.env.GEMINI_MODEL) }
     ].filter(p => !!p.apiKey);
 
