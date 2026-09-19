@@ -18,6 +18,7 @@ export function HonorNotificationListener({ userId }: { userId?: number }) {
     if (!userId) return;
 
     const checkNotifications = async () => {
+      if (document.visibilityState === "hidden") return;
       try {
         const res = await fetch("/api/notifications/honor");
         if (!res.ok) return;
@@ -34,8 +35,8 @@ export function HonorNotificationListener({ userId }: { userId?: number }) {
     // Initial check
     checkNotifications();
 
-    // Check every 30 seconds
-    const interval = setInterval(checkNotifications, 30000);
+    // Check every 2 minutes only while the page is visible.
+    const interval = setInterval(checkNotifications, 120000);
     return () => clearInterval(interval);
   }, [userId]);
 

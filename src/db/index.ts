@@ -5,6 +5,7 @@ import * as schema from "./schema";
 const databaseUrl = process.env.DATABASE_URL;
 export const isDatabaseConfigured = Boolean(databaseUrl);
 const connectionString = databaseUrl ?? "postgresql://127.0.0.1:5432/joinjoy_unconfigured";
+const poolMax = Math.min(3, Math.max(1, Number(process.env.DB_POOL_MAX ?? 1)));
 
 const globalForDb = globalThis as typeof globalThis & {
   __arenaNextJsPostgresqlPool?: Pool;
@@ -15,7 +16,9 @@ export const pool =
   new Pool({
     connectionString,
     connectionTimeoutMillis: 1000,
-    max: 1,
+    idleTimeoutMillis: 10000,
+    maxUses: 500,
+    max: poolMax,
   });
 
 if (process.env.NODE_ENV !== "production") {

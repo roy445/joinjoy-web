@@ -1,9 +1,8 @@
 import Link from "next/link";
+import { unstable_cache } from "next/cache";
 import { db, isDatabaseConfigured } from "@/db";
 import { events, users, eventParticipants, siteAnnouncements } from "@/db/schema";
 import { eq, ne, sql, desc, asc, and, ilike, or, isNull } from "drizzle-orm";
-import { ensureSeeded } from "@/lib/seed";
-import { autoUpdateEventStatuses } from "@/lib/event-status";
 import { SearchBar } from "@/components/search-bar";
 import { SectionTitle, EmptyState } from "@/components/ui";
 import { EventCard } from "@/components/event-card";
@@ -80,41 +79,33 @@ const baseSelect = async () => {
   }
 };
 
+const getCachedHomepageRows = unstable_cache(
+  async () => baseSelect(),
+  ["joinjoy-homepage-events"],
+  { revalidate: 30 }
+);
+
+const getCachedHomepageMeta = unstable_cache(
+  async () => Promise.all([
+    db.select({ count: sql<number>`count(*)` }).from(events).where(ne(events.status, "cancelled")),
+    db.select().from(siteAnnouncements).where(eq(siteAnnouncements.isActive, true)).orderBy(desc(siteAnnouncements.createdAt)).limit(1),
+  ]),
+  ["joinjoy-homepage-meta"],
+  { revalidate: 30 }
+);
+
 async function getSections() {
   const emptySections = { hot: [], latest: [], upcoming: [], activeCount: 0, announcement: null };
   if (!isDatabaseConfigured) {
     return emptySections;
   }
   try {
-    await ensureSeeded();
-    await autoUpdateEventStatuses();
-
-  // Events published exclusively inside a group are excluded from the
-  // public homepage — they only ever appear inside that group's page.
-  const publicScope = isNull(events.groupId);
-
-  const hotQuery = await baseSelect();
-  const latestQuery = await baseSelect();
-  const upcomingQuery = await baseSelect();
-
-  const [hot, latest, upcoming, activeCount, announcement] = await Promise.all([
-    // Since baseSelect already returns results, we filter in memory for SSR stability
-    // In a production app, we would use a more sophisticated query builder, 
-    // but here we prioritize safety to restore the site.
-    Promise.resolve(hotQuery
-      .filter(e => !e.isPrivate && e.status !== "cancelled" && e.status !== "completed")
-      .sort((a, b) => b.participantCount - a.participantCount)
-      .slice(0, 4)),
-    Promise.resolve(latestQuery
-      .filter(e => !e.isPrivate && e.status !== "cancelled" && e.status !== "completed")
-      .slice(0, 4)),
-    Promise.resolve(upcomingQuery
-      .filter(e => !e.isPrivate && e.status !== "cancelled" && e.status !== "completed")
-      .sort((a, b) => a.eventDate.localeCompare(b.eventDate))
-      .slice(0, 4)),
-    db.select({ count: sql<number>`count(*)` }).from(events).where(ne(events.status, "cancelled")),
-    db.select().from(siteAnnouncements).where(eq(siteAnnouncements.isActive, true)).orderBy(desc(siteAnnouncements.createdAt)).limit(1),
-  ]);
+    const rows = await getCachedHomepageRows();
+    const [activeCount, announcement] = await getCachedHomepageMeta();
+    const visible = rows.filter((e) => !e.isPrivate && e.status !== "cancelled" && e.status !== "completed");
+    const hot = [...visible].sort((a, b) => b.participantCount - a.participantCount).slice(0, 4);
+    const latest = visible.slice(0, 4);
+    const upcoming = [...visible].sort((a, b) => a.eventDate.localeCompare(b.eventDate)).slice(0, 4);
 
     return { hot, latest, upcoming, activeCount: Number(activeCount[0]?.count ?? 0), announcement: announcement[0] ?? null };
   } catch (error) {
@@ -142,7 +133,7 @@ async function runSearch(params: { q?: string; region?: string; date?: string; t
   if (params.sort === "popular") orderBy = desc(sql`coalesce(${participantCountSub.count}, 0)`);
   if (params.sort === "upcoming") orderBy = asc(events.eventDate);
 
-  const allResults = await baseSelect();
+  const allResults = await getCachedHomepageRows();
   const results = allResults
     .filter(e => !e.isPrivate && e.status !== "cancelled")
     .slice(0, 24);
