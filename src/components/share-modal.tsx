@@ -8,6 +8,8 @@ export function ShareModal({ title, onClose }: { title: string; onClose: () => v
   const [url, setUrl] = useState("");
 
   useEffect(() => {
+    // The URL is only available after this client component mounts.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setUrl(window.location.href);
   }, []);
 

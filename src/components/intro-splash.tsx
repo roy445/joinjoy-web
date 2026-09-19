@@ -13,6 +13,8 @@ export function IntroSplash() {
   useEffect(() => {
     const shown = window.sessionStorage.getItem("joinjoy-intro-shown");
     if (shown) return;
+    // Session storage is only available after this client component mounts.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setVisible(true);
     const leaveTimer = setTimeout(() => setLeaving(true), TOTAL_MS);
     const hideTimer = setTimeout(() => {

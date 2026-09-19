@@ -1,6 +1,6 @@
 import { cookies } from "next/headers";
 import crypto from "crypto";
-import { db } from "@/db";
+import { db, isDatabaseConfigured } from "@/db";
 import { sessions, users, shopItems, userInventory } from "@/db/schema";
 import { eq, and, gt } from "drizzle-orm";
 
@@ -70,6 +70,7 @@ export async function destroySession() {
 }
 
 export async function getCurrentUser(): Promise<SessionUser | null> {
+  if (!isDatabaseConfigured) return null;
   try {
     const cookieStore = await cookies();
     const token = cookieStore.get(SESSION_COOKIE)?.value;

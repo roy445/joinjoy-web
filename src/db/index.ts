@@ -3,10 +3,8 @@ import { Pool } from "pg";
 import * as schema from "./schema";
 
 const databaseUrl = process.env.DATABASE_URL;
-
-if (!databaseUrl) {
-  throw new Error("DATABASE_URL is required");
-}
+export const isDatabaseConfigured = Boolean(databaseUrl);
+const connectionString = databaseUrl ?? "postgresql://127.0.0.1:5432/joinjoy_unconfigured";
 
 const globalForDb = globalThis as typeof globalThis & {
   __arenaNextJsPostgresqlPool?: Pool;
@@ -15,7 +13,9 @@ const globalForDb = globalThis as typeof globalThis & {
 export const pool =
   globalForDb.__arenaNextJsPostgresqlPool ??
   new Pool({
-    connectionString: databaseUrl,
+    connectionString,
+    connectionTimeoutMillis: 1000,
+    max: 1,
   });
 
 if (process.env.NODE_ENV !== "production") {

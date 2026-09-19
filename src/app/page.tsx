@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { db } from "@/db";
+import { db, isDatabaseConfigured } from "@/db";
 import { events, users, eventParticipants, siteAnnouncements } from "@/db/schema";
 import { eq, ne, sql, desc, asc, and, ilike, or, isNull } from "drizzle-orm";
 import { ensureSeeded } from "@/lib/seed";
@@ -81,6 +81,9 @@ const baseSelect = async () => {
 };
 
 async function getSections() {
+  if (!isDatabaseConfigured) {
+    return { hot: [], latest: [], upcoming: [], activeCount: 0, announcement: null };
+  }
   await ensureSeeded();
   await autoUpdateEventStatuses();
 

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { Trophy, Star, Award, Crown, X } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -19,7 +19,14 @@ export function HonorToast({ type, title, content, onClose }: HonorToastProps) {
   const [mounted, setMounted] = useState(false);
   const [visible, setVisible] = useState(false);
 
+  const handleClose = useCallback(() => {
+    setVisible(false);
+    setTimeout(onClose, 300);
+  }, [onClose]);
+
   useEffect(() => {
+    // This state gates a portal until document.body is available on the client.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setMounted(true);
     setTimeout(() => setVisible(true), 10);
     
@@ -48,12 +55,7 @@ export function HonorToast({ type, title, content, onClose }: HonorToastProps) {
       clearInterval(interval);
       clearTimeout(timer);
     };
-  }, []);
-
-  const handleClose = () => {
-    setVisible(false);
-    setTimeout(onClose, 300);
-  };
+  }, [handleClose]);
 
   if (!mounted) return null;
 

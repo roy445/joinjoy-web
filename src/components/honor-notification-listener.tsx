@@ -42,6 +42,8 @@ export function HonorNotificationListener({ userId }: { userId?: number }) {
   useEffect(() => {
     if (!activeNotification && queue.length > 0) {
       const next = queue[0];
+      // Move the next queued notification into the visible slot.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setActiveNotification(next);
       setQueue(prev => prev.slice(1));
     }
