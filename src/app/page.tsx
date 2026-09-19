@@ -81,11 +81,13 @@ const baseSelect = async () => {
 };
 
 async function getSections() {
+  const emptySections = { hot: [], latest: [], upcoming: [], activeCount: 0, announcement: null };
   if (!isDatabaseConfigured) {
-    return { hot: [], latest: [], upcoming: [], activeCount: 0, announcement: null };
+    return emptySections;
   }
-  await ensureSeeded();
-  await autoUpdateEventStatuses();
+  try {
+    await ensureSeeded();
+    await autoUpdateEventStatuses();
 
   // Events published exclusively inside a group are excluded from the
   // public homepage — they only ever appear inside that group's page.
@@ -114,7 +116,11 @@ async function getSections() {
     db.select().from(siteAnnouncements).where(eq(siteAnnouncements.isActive, true)).orderBy(desc(siteAnnouncements.createdAt)).limit(1),
   ]);
 
-  return { hot, latest, upcoming, activeCount: Number(activeCount[0]?.count ?? 0), announcement: announcement[0] ?? null };
+    return { hot, latest, upcoming, activeCount: Number(activeCount[0]?.count ?? 0), announcement: announcement[0] ?? null };
+  } catch (error) {
+    console.error("Homepage data unavailable; rendering empty state:", error);
+    return emptySections;
+  }
 }
 
 async function runSearch(params: { q?: string; region?: string; date?: string; tag?: string; sort?: string }) {
