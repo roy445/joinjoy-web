@@ -1,12 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
-import { users, userLegalAcceptances } from "@/db/schema";
+import { users, userLegalAcceptances, securityAuditLogs } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { createSession, hashPassword } from "@/lib/auth";
 import { isValidEmail, sanitizeText } from "@/lib/utils";
 import { rateLimit, clientKey, isSameOrigin } from "@/lib/security";
 import { LEGAL_VERSIONS } from "@/lib/legal";
-import { logSecurityAudit } from "@/lib/api";
 
 export async function POST(req: NextRequest) {
   if (!isSameOrigin(req)) {
@@ -34,17 +33,28 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "此 Email 已被註冊" }, { status: 409 });
   }
 
-  const [user] = await db
-    .insert(users)
-    .values({ email, passwordHash: hashPassword(password), name })
-    .returning({ id: users.id });
+  const user = await db.transaction(async (tx) => {
+    const [created] = await tx
+      .insert(users)
+      .values({ email, passwordHash: hashPassword(password), name })
+      .returning({ id: users.id });
+    if (!created) throw new Error("帳號建立失敗");
 
-  await db.insert(userLegalAcceptances).values([
-    { userId: user.id, documentType: "terms", documentVersion: LEGAL_VERSIONS.terms, context: "registration" },
-    { userId: user.id, documentType: "privacy", documentVersion: LEGAL_VERSIONS.privacy, context: "registration" },
-    { userId: user.id, documentType: "safety", documentVersion: LEGAL_VERSIONS.safety, context: "registration" },
-  ]);
-  await logSecurityAudit({ actorUserId: user.id, action: "registration_legal_acceptance", targetType: "user", targetId: user.id, context: "registration", metadata: { termsVersion: LEGAL_VERSIONS.terms, privacyVersion: LEGAL_VERSIONS.privacy, safetyVersion: LEGAL_VERSIONS.safety } });
+    await tx.insert(userLegalAcceptances).values([
+      { userId: created.id, documentType: "terms", documentVersion: LEGAL_VERSIONS.terms, context: "registration" },
+      { userId: created.id, documentType: "privacy", documentVersion: LEGAL_VERSIONS.privacy, context: "registration" },
+      { userId: created.id, documentType: "safety", documentVersion: LEGAL_VERSIONS.safety, context: "registration" },
+    ]);
+    await tx.insert(securityAuditLogs).values({
+      actorUserId: created.id,
+      action: "registration_legal_acceptance",
+      targetType: "user",
+      targetId: created.id,
+      context: "registration",
+      metadata: { termsVersion: LEGAL_VERSIONS.terms, privacyVersion: LEGAL_VERSIONS.privacy, safetyVersion: LEGAL_VERSIONS.safety },
+    });
+    return created;
+  });
 
   await createSession(user.id);
 

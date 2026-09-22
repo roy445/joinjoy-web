@@ -286,7 +286,8 @@ function JoinPanel({ event, me, myParticipation, remaining, showToast, reload }:
 }
 
 function JoinModal({ event, onClose, showToast, reload }: any) {
-  const [agree, setAgree] = useState(false);
+  const [agreePolicy, setAgreePolicy] = useState(false);
+  const [safetyConfirmation, setSafetyConfirmation] = useState(false);
   const [plusOne, setPlusOne] = useState(0);
   const [loading, setLoading] = useState(false);
 
@@ -296,7 +297,7 @@ function JoinModal({ event, onClose, showToast, reload }: any) {
       const res = await fetch(`/api/events/${event.id}/join`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ agreePolicy: agree, safetyConfirmation: agree, plusOneCount: plusOne }),
+        body: JSON.stringify({ agreePolicy, safetyConfirmation, plusOneCount: plusOne }),
       });
       const d = await res.json();
       if (res.ok) {
@@ -333,14 +334,20 @@ function JoinModal({ event, onClose, showToast, reload }: any) {
             <b>報名須知：</b> 報名成功即代表承諾出席。若<b>無故未出席（放鳥）</b>或於活動中發生<b>騷擾、詐騙等違規行為</b>，經揪主檢舉查證屬實後，將被平台<b>列入黑名單</b>，往後參加任何活動皆會被標記，並可能被<b>永久封鎖帳號</b>。請務必三思後再報名！
           </p>
         </div>
-        <label className="mt-3 flex items-center gap-2 text-xs text-main">
-          <input type="checkbox" checked={agree} onChange={(e) => setAgree(e.target.checked)} className="accent-brand-500" />
-          我已詳閱並同意上述報名須知
-        </label>
+        <div className="mt-3 space-y-2 text-xs text-main">
+          <label className="flex items-start gap-2">
+            <input type="checkbox" checked={agreePolicy} onChange={(e) => setAgreePolicy(e.target.checked)} className="mt-0.5 accent-brand-500" />
+            <span>我已確認活動日期、時間、地點、費用與參加條件，並同意依活動頁資訊參加。</span>
+          </label>
+          <label className="flex items-start gap-2">
+            <input type="checkbox" checked={safetyConfirmation} onChange={(e) => setSafetyConfirmation(e.target.checked)} className="mt-0.5 accent-brand-500" />
+            <span>我已閱讀安全提醒，了解違規、騷擾、詐騙或無故缺席可能導致檢舉、黑名單或帳號限制。</span>
+          </label>
+        </div>
 
         <div className="mt-5 flex gap-2">
           <button onClick={onClose} className="flex-1 rounded-xl border border-[var(--color-border)] py-2.5 text-sm font-bold text-main">取消</button>
-          <button disabled={!agree || loading} onClick={submit} className="btn-brand flex flex-1 items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-bold disabled:opacity-50">
+          <button disabled={!agreePolicy || !safetyConfirmation || loading} onClick={submit} className="btn-brand flex flex-1 items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-bold disabled:opacity-50">
             {loading && <Loader2 size={16} className="animate-spin" />} 確認報名
           </button>
         </div>
