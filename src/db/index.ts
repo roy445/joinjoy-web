@@ -1,6 +1,7 @@
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
 import * as schema from "./schema";
+import { recordDbQuery } from "@/lib/db-monitor";
 
 const databaseUrl = process.env.DATABASE_URL;
 export const isDatabaseConfigured = Boolean(databaseUrl);
@@ -23,6 +24,25 @@ export const pool =
 
 if (process.env.NODE_ENV !== "production") {
   globalForDb.__arenaNextJsPostgresqlPool = pool;
+}
+
+const globalForDbMonitor = globalThis as typeof globalThis & { __joinjoyDbQueryWrapped?: boolean };
+if (!globalForDbMonitor.__joinjoyDbQueryWrapped) {
+  const originalQuery = pool.query.bind(pool);
+  pool.query = ((...args: Parameters<Pool["query"]>) => {
+    const startedAt = Date.now();
+    const firstArg = args[0] as unknown;
+    const text = typeof firstArg === "string" ? firstArg : (firstArg as { text?: string } | undefined)?.text || "";
+    const operation = (text.match(/^\s*([a-z]+)/i)?.[1] || "unknown").toUpperCase();
+    const result = (originalQuery as unknown as (...queryArgs: Parameters<Pool["query"]>) => unknown)(...args);
+    const maybePromise = result as { finally?: (callback: () => void) => unknown } | null | undefined;
+    if (maybePromise && typeof maybePromise.finally === "function") {
+      return maybePromise.finally(() => recordDbQuery(operation, Date.now() - startedAt));
+    }
+    recordDbQuery(operation, Date.now() - startedAt);
+    return result;
+  }) as Pool["query"];
+  globalForDbMonitor.__joinjoyDbQueryWrapped = true;
 }
 
 export const db = drizzle(pool, { schema });

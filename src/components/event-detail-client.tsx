@@ -762,7 +762,8 @@ function ChatTab({ eventId, me, isMember, host }: any) {
     loadMessages();
     loadPolls();
     fetch(`/api/events/${eventId}/chat/read`, { method: "POST" });
-    const interval = setInterval(() => {
+    const loadNewMessages = () => {
+      if (document.visibilityState === "hidden") return;
       fetch(`/api/events/${eventId}/chat?sinceId=${lastIdRef.current}`).then((r) => r.json()).then((d) => {
         if (d.messages?.length) {
           setMessages((prev) => [...prev, ...d.messages]);
@@ -770,8 +771,13 @@ function ChatTab({ eventId, me, isMember, host }: any) {
           loadPolls();
         }
       });
-    }, 4000);
-    return () => clearInterval(interval);
+    };
+    const interval = window.setInterval(loadNewMessages, 30000);
+    document.addEventListener("visibilitychange", loadNewMessages);
+    return () => {
+      window.clearInterval(interval);
+      document.removeEventListener("visibilitychange", loadNewMessages);
+    };
   }, [isMember, eventId, loadMessages, loadPolls]);
 
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages.length]);

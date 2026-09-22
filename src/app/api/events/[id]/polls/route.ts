@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { eventPolls, eventPollVotes, events, eventChatMessages } from "@/db/schema";
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, desc, inArray } from "drizzle-orm";
 import { requireUser } from "@/lib/auth";
 import { errorResponse } from "@/lib/api";
 import { notifyMany } from "@/lib/notify";
@@ -13,17 +13,18 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     const user = await requireUser();
     const { id: idStr } = await params;
     const eventId = Number(idStr);
-    const polls = await db.select().from(eventPolls).where(eq(eventPolls.eventId, eventId)).orderBy(desc(eventPolls.createdAt));
-    const votes = await db.select().from(eventPollVotes).where(eq(eventPollVotes.pollId, polls[0]?.id ?? -1));
+    const polls = await db.select({ id: eventPolls.id, eventId: eventPolls.eventId, createdBy: eventPolls.createdBy, question: eventPolls.question, options: eventPolls.options, closesAt: eventPolls.closesAt, createdAt: eventPolls.createdAt }).from(eventPolls).where(eq(eventPolls.eventId, eventId)).orderBy(desc(eventPolls.createdAt)).limit(50);
+    const pollIds = polls.map((poll) => poll.id);
+    const votes = pollIds.length
+      ? await db.select({ pollId: eventPollVotes.pollId, userId: eventPollVotes.userId, optionIndex: eventPollVotes.optionIndex }).from(eventPollVotes).where(inArray(eventPollVotes.pollId, pollIds))
+      : [];
 
-    const results = await Promise.all(
-      polls.map(async (poll) => {
-        const pollVotes = await db.select().from(eventPollVotes).where(eq(eventPollVotes.pollId, poll.id));
+    const results = polls.map((poll) => {
+        const pollVotes = votes.filter((vote) => vote.pollId === poll.id);
         const counts = (poll.options as string[]).map((_, i) => pollVotes.filter((v) => v.optionIndex === i).length);
         const myVote = pollVotes.find((v) => v.userId === user.id)?.optionIndex ?? null;
         return { ...poll, counts, totalVotes: pollVotes.length, myVote };
-      })
-    );
+      });
 
     return NextResponse.json({ polls: results });
   } catch (err) {

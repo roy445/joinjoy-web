@@ -35,10 +35,17 @@ export function NotificationBell({ loggedIn }: { loggedIn: boolean }) {
       }
     };
     load();
-    const id = setInterval(load, 10000);
+    const interval = window.setInterval(() => {
+      if (document.visibilityState === "visible") load();
+    }, 60000);
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") load();
+    };
+    document.addEventListener("visibilitychange", onVisibilityChange);
     return () => {
       active = false;
-      clearInterval(id);
+      window.clearInterval(interval);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
     };
   }, [loggedIn]);
 
