@@ -3,7 +3,7 @@ import { db } from "@/db";
 import { reports, users, events } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { requireUser } from "@/lib/auth";
-import { errorResponse } from "@/lib/api";
+import { errorResponse, logSecurityAudit } from "@/lib/api";
 import { notifyMany } from "@/lib/notify";
 import { sanitize, isSameOrigin, rateLimit, clientKey } from "@/lib/security";
 
@@ -39,6 +39,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       content: `${user.name} 檢舉了「${event.title}」：${reason}`,
       link: "/admin/reports",
     });
+    await logSecurityAudit({ actorUserId: user.id, action: "report_created", targetType: "report", targetId: report.id, context: "report", metadata: { reportType: report.type, reason } });
 
     return NextResponse.json({ ok: true, report });
   } catch (err) {

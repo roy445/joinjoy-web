@@ -28,3 +28,23 @@ export async function logAdminAction(
     detail: detail ?? null,
   });
 }
+
+export async function logSecurityAudit(input: {
+  actorUserId?: number | null;
+  action: string;
+  targetType?: string;
+  targetId?: number;
+  context?: string;
+  metadata?: Record<string, unknown>;
+}) {
+  const { db } = await import("@/db");
+  const { securityAuditLogs } = await import("@/db/schema");
+  await db.insert(securityAuditLogs).values({
+    actorUserId: input.actorUserId ?? null,
+    action: input.action,
+    targetType: input.targetType ?? null,
+    targetId: input.targetId ?? null,
+    context: input.context ?? null,
+    metadata: input.metadata ?? {},
+  });
+}

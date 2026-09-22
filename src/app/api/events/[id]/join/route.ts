@@ -3,7 +3,7 @@ import { db } from "@/db";
 import { events, eventParticipants, users } from "@/db/schema";
 import { eq, and, asc } from "drizzle-orm";
 import { requireUser } from "@/lib/auth";
-import { errorResponse } from "@/lib/api";
+import { errorResponse, logSecurityAudit } from "@/lib/api";
 import { notify } from "@/lib/notify";
 import { isSameOrigin, rateLimit, clientKey } from "@/lib/security";
 
@@ -16,8 +16,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     if (!rateLimit(clientKey(req, `join-${user.id}`), 20, 10 * 60 * 1000)) throw new Error("操作太頻繁，請稍後再試");
 
     const body = await req.json().catch(() => ({}));
-    if (!body.agreePolicy) {
-      throw new Error("請詳閱並勾選報名須知：無故未出席或違規將可能被列入黑名單或封鎖帳號");
+    if (body.safetyConfirmation !== true && body.agreePolicy !== true) {
+      throw new Error("請確認活動時間、地點、內容與安全提醒後，再勾選參加");
     }
 
     const [event] = await db.select().from(events).where(eq(events.id, eventId)).limit(1);
@@ -63,6 +63,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     } else {
       await db.insert(eventParticipants).values({ eventId, userId: user.id, status, plusOneCount });
     }
+    await logSecurityAudit({ actorUserId: user.id, action: "event_join_safety_confirmation", targetType: "event", targetId: eventId, context: "event_join", metadata: { eventStatus: status, plusOneCount, safetyConfirmation: true } });
 
     await notify({
       userId: event.hostId,

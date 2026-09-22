@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
-import { reports, users, events } from "@/db/schema";
+import { reports, users, events, reportActions } from "@/db/schema";
 import { eq, desc } from "drizzle-orm";
 import { requireAdmin } from "@/lib/auth";
-import { errorResponse, logAdminAction } from "@/lib/api";
+import { errorResponse, logAdminAction, logSecurityAudit } from "@/lib/api";
 import { notify } from "@/lib/notify";
 
 export async function GET() {
@@ -48,8 +48,10 @@ export async function PATCH(req: NextRequest) {
     if (!status) throw new Error("不支援的操作");
 
     await db.update(reports).set({ status, reviewedBy: admin.id }).where(eq(reports.id, id));
+    await db.insert(reportActions).values({ reportId: id, adminId: admin.id, action: status, note: String(body?.note || "") || null });
     await notify({ userId: report.reporterId, type: "report_update", title: "您的檢舉已處理", content: `檢舉案件已${status === "resolved" ? "查證屬實並處理" : "審核後不成立"}` });
     await logAdminAction(admin.id, "處理檢舉案件", "report", id, status);
+    await logSecurityAudit({ actorUserId: admin.id, action: "report_reviewed", targetType: "report", targetId: id, context: "admin", metadata: { status, note: body?.note ? String(body.note).slice(0, 500) : undefined } });
 
     return NextResponse.json({ ok: true });
   } catch (err) {

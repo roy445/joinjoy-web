@@ -301,6 +301,53 @@ export const reports = pgTable("reports", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
+// ---------- Legal consent and security audit ----------
+export const legalDocumentVersions = pgTable("legal_document_versions", {
+  id: serial("id").primaryKey(),
+  documentType: varchar("document_type", { length: 40 }).notNull(),
+  version: varchar("version", { length: 30 }).notNull(),
+  title: varchar("title", { length: 150 }).notNull(),
+  effectiveAt: timestamp("effective_at").notNull().defaultNow(),
+  isCurrent: boolean("is_current").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => ({
+  documentVersionIdx: index("legal_document_version_idx").on(table.documentType, table.version),
+}));
+
+export const userLegalAcceptances = pgTable("user_legal_acceptances", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  documentType: varchar("document_type", { length: 40 }).notNull(),
+  documentVersion: varchar("document_version", { length: 30 }).notNull(),
+  context: varchar("context", { length: 40 }).notNull().default("registration"),
+  acceptedAt: timestamp("accepted_at").notNull().defaultNow(),
+}, (table) => ({
+  userLegalIdx: index("user_legal_acceptance_user_idx").on(table.userId, table.documentType),
+}));
+
+export const reportActions = pgTable("report_actions", {
+  id: serial("id").primaryKey(),
+  reportId: integer("report_id").notNull().references(() => reports.id, { onDelete: "cascade" }),
+  adminId: integer("admin_id").notNull().references(() => users.id),
+  action: varchar("action", { length: 40 }).notNull(),
+  note: text("note"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const securityAuditLogs = pgTable("security_audit_logs", {
+  id: serial("id").primaryKey(),
+  actorUserId: integer("actor_user_id").references(() => users.id, { onDelete: "set null" }),
+  action: varchar("action", { length: 80 }).notNull(),
+  targetType: varchar("target_type", { length: 40 }),
+  targetId: integer("target_id"),
+  context: varchar("context", { length: 40 }),
+  metadata: jsonb("metadata").$type<Record<string, unknown>>().default({}),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => ({
+  auditActorIdx: index("security_audit_actor_idx").on(table.actorUserId, table.createdAt),
+  auditTargetIdx: index("security_audit_target_idx").on(table.targetType, table.targetId),
+}));
+
 // ---------- Blacklist requests raised by 揪主 (hosts) ----------
 export const blacklistRequests = pgTable("blacklist_requests", {
   id: serial("id").primaryKey(),

@@ -296,7 +296,7 @@ function JoinModal({ event, onClose, showToast, reload }: any) {
       const res = await fetch(`/api/events/${event.id}/join`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ agreePolicy: agree, plusOneCount: plusOne }),
+        body: JSON.stringify({ agreePolicy: agree, safetyConfirmation: agree, plusOneCount: plusOne }),
       });
       const d = await res.json();
       if (res.ok) {

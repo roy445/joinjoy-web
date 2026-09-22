@@ -38,7 +38,7 @@ export default function RegisterPage() {
       const res = await fetch("/api/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+        body: JSON.stringify({ ...form, agreeLegal: agree }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -112,6 +112,10 @@ export default function RegisterPage() {
           </span>
           {!agree && <span className="text-xs font-bold">必讀 →</span>}
         </button>
+        <label className="flex items-start gap-2 text-xs leading-5 text-soft">
+          <input type="checkbox" checked={agree} onChange={(e) => setAgree(e.target.checked)} className="mt-1 accent-brand-500" />
+          <span>我已閱讀並同意 <Link href="/terms" target="_blank" className="font-bold text-brand-600 underline">使用條款</Link>、<Link href="/privacy" target="_blank" className="font-bold text-brand-600 underline">隱私權政策</Link> 與 <Link href="/safety" target="_blank" className="font-bold text-brand-600 underline">安全規範</Link>。</span>
+        </label>
 
         <button disabled={loading || !agree} type="submit" className="btn-brand flex items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-bold disabled:cursor-not-allowed disabled:opacity-40">
           {loading && <Loader2 size={16} className="animate-spin" />} 建立帳號
