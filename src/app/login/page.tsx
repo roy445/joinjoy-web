@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { AuthCard } from "@/components/auth-card";
 import { Mail, Lock, Loader2 } from "lucide-react";
+import { track } from "@/lib/analytics-client";
 
 function LoginForm() {
   const router = useRouter();
@@ -28,6 +29,7 @@ function LoginForm() {
         setError(data.error || "登入失敗");
         return;
       }
+      track({ name: "first_login", category: "conversion", pagePath: "/login" });
       if (data.warning) {
         router.push("/settings");
         router.refresh();

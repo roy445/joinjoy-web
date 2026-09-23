@@ -14,6 +14,7 @@ import { UserHonor } from "@/components/user-honor";
 import { REPORT_REASONS } from "@/lib/constants";
 import { ShareModal } from "@/components/share-modal";
 import { announceCelebration } from "@/components/celebration-feedback";
+import { trackClick } from "@/lib/analytics-client";
 
 type Tab = "info" | "participants" | "map" | "comments" | "chat" | "announcements";
 
@@ -166,6 +167,7 @@ function ActionButtons({ event, isFavorited, showToast, reload }: any) {
   const [showShare, setShowShare] = useState(false);
 
   async function toggleFavorite() {
+    trackClick("favorite_click", { eventId: event.id });
     const res = await fetch(`/api/events/${event.id}/favorite`, { method: "POST" });
     const d = await res.json();
     if (res.ok) { setFav(d.favorited); showToast(d.favorited ? "已加入收藏" : "已取消收藏"); }
@@ -177,10 +179,10 @@ function ActionButtons({ event, isFavorited, showToast, reload }: any) {
       <button onClick={toggleFavorite} className={`flex h-10 w-10 items-center justify-center rounded-full backdrop-blur transition ${fav ? "bg-coral-500 text-white" : "bg-white/80 text-coral-500"}`}>
         <Heart size={18} fill={fav ? "white" : "none"} />
       </button>
-      <button onClick={() => setShowShare(true)} className="flex h-10 w-10 items-center justify-center rounded-full bg-white/80 text-main backdrop-blur">
+      <button onClick={() => { trackClick("share_click", { eventId: event.id }); setShowShare(true); }} className="flex h-10 w-10 items-center justify-center rounded-full bg-white/80 text-main backdrop-blur">
         <Share2 size={18} />
       </button>
-      <button onClick={() => setShowReport(true)} className="flex h-10 w-10 items-center justify-center rounded-full bg-white/80 text-rose-500 backdrop-blur">
+      <button onClick={() => { trackClick("report_submitted", { eventId: event.id }); setShowReport(true); }} className="flex h-10 w-10 items-center justify-center rounded-full bg-white/80 text-rose-500 backdrop-blur">
         <Flag size={18} />
       </button>
       {showReport && <ReportModal eventId={event.id} onClose={() => setShowReport(false)} showToast={showToast} />}
@@ -279,7 +281,7 @@ function JoinPanel({ event, me, myParticipation, remaining, showToast, reload }:
         <p className="text-sm font-bold text-main">{remaining > 0 ? `剩餘 ${remaining} 個名額` : event.allowWaitlist ? "名額已滿，可加入候補" : "名額已滿"}</p>
         <p className="text-xs text-soft">費用：{Number(event.fee) > 0 ? `$${event.fee}` : "免費"} · {genderLimitLabel(event.genderLimit)}</p>
       </div>
-      <button onClick={() => setShowModal(true)} className="btn-coral rounded-full px-6 py-2.5 text-sm font-bold">立即報名</button>
+      <button onClick={() => { trackClick("join_click", { eventId: event.id }); setShowModal(true); }} className="btn-coral rounded-full px-6 py-2.5 text-sm font-bold">立即報名</button>
       {showModal && <JoinModal event={event} onClose={() => setShowModal(false)} showToast={showToast} reload={reload} />}
     </div>
   );
@@ -301,6 +303,7 @@ function JoinModal({ event, onClose, showToast, reload }: any) {
       });
       const d = await res.json();
       if (res.ok) {
+        trackClick("join_success", { eventId: event.id });
         showToast(d.message);
         announceCelebration({
           kind: "join",

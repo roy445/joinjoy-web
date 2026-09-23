@@ -4,7 +4,7 @@ import { getCurrentUser } from "@/lib/auth";
 import {
   LayoutDashboard, Users, KeyRound, ClipboardCheck, CalendarX, MessageSquare,
   MessagesSquare, Flag, ShieldBan, Megaphone, ScrollText, ShieldQuestion,
-  ShieldCheck, ShoppingBag, Brain,
+  ShieldCheck, ShoppingBag, Brain, BarChart3,
 } from "lucide-react";
 
 const navItems = [
@@ -22,6 +22,7 @@ const navItems = [
   { href: "/admin/groups", label: "身份組管理", icon: ShieldCheck },
   { href: "/admin/jcoins", label: "J幣審計", icon: ShoppingBag },
   { href: "/admin/ai", label: "AI 監控", icon: Brain },
+  { href: "/admin/analytics", label: "網站分析", icon: BarChart3 },
   { href: "/admin/support", label: "錯誤與服務", icon: ShieldCheck },
   { href: "/admin/logs", label: "操作日誌", icon: ScrollText },
 ];

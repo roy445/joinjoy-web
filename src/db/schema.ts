@@ -622,3 +622,49 @@ export const analysisUsageLogs = pgTable("analysis_usage_logs", {
   status: varchar("status", { length: 20 }).notNull().default("started"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
+
+// ---------- Privacy-conscious product analytics ----------
+export const analyticsSessions = pgTable("analytics_sessions", {
+  id: serial("id").primaryKey(),
+  sessionId: varchar("session_id", { length: 80 }).notNull().unique(),
+  anonymousVisitorId: varchar("anonymous_visitor_id", { length: 80 }).notNull(),
+  userId: integer("user_id").references(() => users.id, { onDelete: "set null" }),
+  startedAt: timestamp("started_at").notNull().defaultNow(),
+  lastActivityAt: timestamp("last_activity_at").notNull().defaultNow(),
+  endedAt: timestamp("ended_at"),
+  pageCount: integer("page_count").notNull().default(0),
+  eventCount: integer("event_count").notNull().default(0),
+  deviceType: varchar("device_type", { length: 20 }),
+  browser: varchar("browser", { length: 40 }),
+  os: varchar("os", { length: 40 }),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => ({
+  sessionActivityIdx: index("analytics_session_activity_idx").on(table.lastActivityAt),
+  sessionVisitorIdx: index("analytics_session_visitor_idx").on(table.anonymousVisitorId, table.startedAt),
+}));
+
+export const analyticsEvents = pgTable("analytics_events", {
+  id: serial("id").primaryKey(),
+  anonymousVisitorId: varchar("anonymous_visitor_id", { length: 80 }).notNull(),
+  sessionId: varchar("session_id", { length: 80 }).notNull(),
+  userId: integer("user_id").references(() => users.id, { onDelete: "set null" }),
+  eventName: varchar("event_name", { length: 100 }).notNull(),
+  eventCategory: varchar("event_category", { length: 40 }).notNull().default("product"),
+  pagePath: varchar("page_path", { length: 300 }),
+  referrer: varchar("referrer", { length: 500 }),
+  utmSource: varchar("utm_source", { length: 100 }),
+  utmMedium: varchar("utm_medium", { length: 100 }),
+  utmCampaign: varchar("utm_campaign", { length: 150 }),
+  deviceType: varchar("device_type", { length: 20 }),
+  browser: varchar("browser", { length: 40 }),
+  os: varchar("os", { length: 40 }),
+  screenWidth: integer("screen_width"),
+  screenHeight: integer("screen_height"),
+  metadata: jsonb("metadata").$type<Record<string, string | number | boolean | null>>().default({}),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => ({
+  eventTimeIdx: index("analytics_event_time_idx").on(table.createdAt),
+  eventNameTimeIdx: index("analytics_event_name_time_idx").on(table.eventName, table.createdAt),
+  eventSessionIdx: index("analytics_event_session_idx").on(table.sessionId, table.createdAt),
+  eventUserIdx: index("analytics_event_user_idx").on(table.userId, table.createdAt),
+}));

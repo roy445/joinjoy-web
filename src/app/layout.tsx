@@ -7,6 +7,7 @@ import { IntroSplash } from "@/components/intro-splash";
 import { AppShell } from "@/components/app-shell";
 import { getCurrentUser } from "@/lib/auth";
 import { PwaRegister } from "@/components/pwa-register";
+import { AnalyticsProvider } from "@/components/analytics-provider";
 
 const baloo = Baloo_2({ subsets: ["latin"], variable: "--font-baloo", weight: ["500", "600", "700", "800"] });
 const notoSansTC = Noto_Sans_TC({ subsets: ["latin"], variable: "--font-noto", weight: ["400", "500", "700", "900"] });
@@ -36,6 +37,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
         <ThemeProvider>
           <IntroSplash />
           <PwaRegister />
+          <AnalyticsProvider />
           <AppShell user={user}>{children}</AppShell>
         </ThemeProvider>
       </body>

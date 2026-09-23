@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { AuthCard } from "@/components/auth-card";
 import { GuidelinesModal } from "@/components/guidelines-modal";
 import { Mail, Lock, User, Loader2, BookOpenCheck, CheckCircle2, MailCheck } from "lucide-react";
+import { track } from "@/lib/analytics-client";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -15,6 +16,7 @@ export default function RegisterPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [registered, setRegistered] = useState(false);
+  const [registrationStarted, setRegistrationStarted] = useState(false);
 
   function handleAgree() {
     setAgree(true);
@@ -33,6 +35,8 @@ export default function RegisterPage() {
       setShowGuidelines(true);
       return;
     }
+    if (!registrationStarted) track({ name: "register_started", category: "conversion", pagePath: "/register" });
+    track({ name: "register_submitted", category: "conversion", pagePath: "/register" });
     setLoading(true);
     try {
       const res = await fetch("/api/auth/register", {
@@ -45,6 +49,7 @@ export default function RegisterPage() {
         setError(data.error || "註冊失敗");
         return;
       }
+      track({ name: "register_success", category: "conversion", pagePath: "/register" });
       setRegistered(true);
       router.refresh();
     } finally {
@@ -74,7 +79,7 @@ export default function RegisterPage() {
           <span className="text-xs font-semibold text-soft">暱稱</span>
           <div className="flex items-center gap-2 rounded-xl border border-[var(--color-border)] bg-app px-3 py-2.5">
             <User size={16} className="text-soft" />
-            <input required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="w-full bg-transparent text-sm text-main outline-none" placeholder="你的暱稱" maxLength={50} />
+            <input required value={form.name} onChange={(e) => { if (!registrationStarted) { setRegistrationStarted(true); track({ name: "register_started", category: "conversion", pagePath: "/register" }); } setForm({ ...form, name: e.target.value }); }} className="w-full bg-transparent text-sm text-main outline-none" placeholder="你的暱稱" maxLength={50} />
           </div>
         </label>
         <label className="flex flex-col gap-1.5">
