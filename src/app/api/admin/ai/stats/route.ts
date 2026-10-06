@@ -81,6 +81,38 @@ export async function GET() {
       share: totalCount > 0 ? Math.round((geminiRequestTotal / totalCount) * 100) : 0
     }];
 
+    const trendStart = new Date(Date.now() - 23 * 60 * 60 * 1000);
+    const trendRows = await db.execute(sql`
+      SELECT
+        date_trunc('hour', created_at) as hour,
+        provider,
+        COALESCE(SUM(prompt_tokens), 0) + COALESCE(SUM(completion_tokens), 0) as tokens
+      FROM ai_usage_logs
+      WHERE created_at >= ${trendStart}
+        AND (provider = 'gemini' OR provider LIKE 'gemini-%')
+      GROUP BY date_trunc('hour', created_at), provider
+      ORDER BY hour ASC
+    `);
+    const trendByHour = new Map<string, { api1: number; api2: number; api3: number; api4: number }>();
+    for (let index = 23; index >= 0; index -= 1) {
+      const hour = new Date(Date.now() - index * 60 * 60 * 1000);
+      hour.setMinutes(0, 0, 0);
+      trendByHour.set(hour.toISOString().slice(0, 13), { api1: 0, api2: 0, api3: 0, api4: 0 });
+    }
+    for (const row of trendRows.rows as Array<{ hour: string | Date; provider: string; tokens: string | number }>) {
+      const hourKey = new Date(row.hour).toISOString().slice(0, 13);
+      const point = trendByHour.get(hourKey);
+      if (!point) continue;
+      const provider = String(row.provider);
+      const slot = provider === "gemini" ? 1 : Number(provider.match(/^gemini-(\d+)$/)?.[1]);
+      if (slot >= 1 && slot <= 4) point[`api${slot}` as "api1" | "api2" | "api3" | "api4"] += Number(row.tokens || 0);
+    }
+    const geminiTokenTrend = [...trendByHour.entries()].map(([hour, values]) => ({
+      hour,
+      label: new Date(`${hour}:00:00.000Z`).toLocaleTimeString("zh-TW", { hour: "2-digit", minute: "2-digit", hour12: false, timeZone: "Asia/Taipei" }),
+      ...values,
+    }));
+
     // 3. Recent Errors
     const recentErrorRows = await db.select()
       .from(aiUsageLogs)
@@ -101,6 +133,7 @@ export async function GET() {
       },
       providers,
       geminiApis,
+      geminiTokenTrend,
       recentErrors: recentErrorRows.map(r => ({
         time: r.createdAt,
         provider: r.provider,

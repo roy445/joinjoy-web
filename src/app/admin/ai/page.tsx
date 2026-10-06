@@ -21,6 +21,40 @@ function AIStatCard({ label, value, subValue, icon, colorClass }: any) {
   );
 }
 
+function GeminiTokenTrend({ trend }: { trend: Array<Record<string, number | string>> }) {
+  const width = 760;
+  const height = 250;
+  const padding = 30;
+  const keys = ["api1", "api2", "api3", "api4"] as const;
+  const colors = ["#2563eb", "#8b5cf6", "#f97316", "#10b981"];
+  const max = Math.max(1, ...trend.flatMap((point) => keys.map((key) => Number(point[key] || 0))));
+  const points = (key: typeof keys[number]) => trend.map((point, index) => {
+    const x = padding + (index / Math.max(trend.length - 1, 1)) * (width - padding * 2);
+    const y = height - padding - (Number(point[key] || 0) / max) * (height - padding * 2);
+    return `${x},${y}`;
+  }).join(" ");
+
+  return (
+    <div>
+      <div className="mb-4 flex flex-wrap gap-4 text-xs font-bold text-soft">
+        {keys.map((key, index) => <span key={key} className="flex items-center gap-2"><i className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: colors[index] }} />Gemini API {index + 1}</span>)}
+      </div>
+      <div className="overflow-x-auto rounded-2xl bg-app-soft p-3">
+        <svg viewBox={`0 0 ${width} ${height}`} className="min-w-[620px] w-full" role="img" aria-label="四組 Gemini API 近 24 小時 Token 消耗趨勢">
+          {[0, 1, 2, 3].map((line) => {
+            const y = padding + (line / 3) * (height - padding * 2);
+            return <line key={line} x1={padding} x2={width - padding} y1={y} y2={y} stroke="currentColor" className="text-brand-100" strokeDasharray="4 5" />;
+          })}
+          {keys.map((key, index) => <polyline key={key} points={points(key)} fill="none" stroke={colors[index]} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />)}
+          <text x={padding} y={height - 8} className="fill-soft text-[10px]">{trend[0]?.label || ""}</text>
+          <text x={width - padding} y={height - 8} textAnchor="end" className="fill-soft text-[10px]">{trend[trend.length - 1]?.label || ""}</text>
+          <text x={width - padding} y={padding - 8} textAnchor="end" className="fill-soft text-[10px]">{max.toLocaleString()} tokens</text>
+        </svg>
+      </div>
+    </div>
+  );
+}
+
 export default function AdminAIPage() {
   const [stats, setStats] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -104,6 +138,17 @@ export default function AdminAIPage() {
             );
           })}
         </div>
+      </section>
+
+      <section className="card-surface rounded-[2rem] p-8">
+        <div className="mb-6 flex items-center justify-between gap-4">
+          <div>
+            <h3 className="text-xl font-black text-main">Gemini Token 消耗趨勢</h3>
+            <p className="mt-2 text-sm text-soft">顯示四組 Gemini API 近 24 小時的 Prompt + Completion Token 使用量。</p>
+          </div>
+          <BarChart3 className="text-brand-500" />
+        </div>
+        <GeminiTokenTrend trend={stats.geminiTokenTrend || []} />
       </section>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
