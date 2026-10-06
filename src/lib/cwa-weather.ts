@@ -2,6 +2,7 @@ const CWA_FORECAST_URL = "https://opendata.cwa.gov.tw/api/v1/rest/datastore/F-C0
 const CWA_TOWNSHIP_URL_PREFIX = "https://opendata.cwa.gov.tw/api/v1/rest/datastore/F-D0047-";
 export const CWA_CACHE_TTL_SECONDS = 10 * 60;
 const TAIPEI_TIME_ZONE = "Asia/Taipei";
+type JsonRecord = Record<string, unknown>;
 
 export const TAIWAN_CITIES = [
   "基隆市", "臺北市", "新北市", "桃園市", "新竹市", "新竹縣", "苗栗縣",
@@ -29,12 +30,6 @@ const TOWNSHIP_DATASET_BY_CITY: Record<string, string> = {
   嘉義縣: "029", 屏東縣: "033", 臺東縣: "037", 花蓮縣: "041", 澎湖縣: "045", 基隆市: "049", 新竹市: "053",
   嘉義市: "057", 臺北市: "061", 高雄市: "065", 新北市: "069", 臺中市: "073", 臺南市: "077", 連江縣: "081", 金門縣: "085",
 };
-
-type CwaParameter = { parameterName?: string; parameterValue?: string };
-type CwaTime = { startTime: string; endTime: string; parameter?: CwaParameter };
-type CwaWeatherElement = { elementName: string; time?: CwaTime[] };
-type CwaLocation = { locationName: string; weatherElement?: CwaWeatherElement[] };
-type CwaResponse = { success?: string; records?: { location?: CwaLocation[] } };
 
 export type CwaForecastPeriod = {
   startTime: string;
@@ -68,83 +63,99 @@ export function findTaiwanCityInText(input: string): string | null {
 
 export function taiwanNow(): { iso: string; date: string; time: string; weekday: string } {
   const now = new Date();
-  const dateFormatter = new Intl.DateTimeFormat("zh-TW", {
-    timeZone: TAIPEI_TIME_ZONE, year: "numeric", month: "2-digit", day: "2-digit", weekday: "long",
-  });
-  const timeFormatter = new Intl.DateTimeFormat("zh-TW", {
-    timeZone: TAIPEI_TIME_ZONE, hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false,
-  });
+  const dateFormatter = new Intl.DateTimeFormat("zh-TW", { timeZone: TAIPEI_TIME_ZONE, year: "numeric", month: "2-digit", day: "2-digit", weekday: "long" });
+  const timeFormatter = new Intl.DateTimeFormat("zh-TW", { timeZone: TAIPEI_TIME_ZONE, hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false });
   const parts = Object.fromEntries(dateFormatter.formatToParts(now).map((part) => [part.type, part.value]));
-  return {
-    iso: now.toISOString(),
-    date: `${parts.year}年${parts.month}月${parts.day}日`,
-    time: timeFormatter.format(now),
-    weekday: parts.weekday || "",
-  };
+  return { iso: now.toISOString(), date: `${parts.year}年${parts.month}月${parts.day}日`, time: timeFormatter.format(now), weekday: parts.weekday || "" };
 }
 
-function numberParameter(elements: Map<string, CwaWeatherElement>, names: string | string[], index: number): number | null {
-  const candidates = Array.isArray(names) ? names : [names];
-  const raw = candidates.map((name) => elements.get(name)?.time?.[index]?.parameter?.parameterName).find((value) => value !== undefined);
-  const value = raw === undefined ? Number.NaN : Number(raw);
-  return Number.isFinite(value) ? value : null;
+function record(value: unknown): JsonRecord {
+  return value && typeof value === "object" ? value as JsonRecord : {};
 }
 
-function textParameter(elements: Map<string, CwaWeatherElement>, names: string | string[], index: number): string {
-  const candidates = Array.isArray(names) ? names : [names];
-  for (const name of candidates) {
-    const value = elements.get(name)?.time?.[index]?.parameter?.parameterName?.trim();
-    if (value) return value;
-  }
-  return "資料整理中";
+function valueOf(source: JsonRecord, names: string[]): unknown {
+  for (const name of names) if (source[name] !== undefined && source[name] !== null) return source[name];
+  return undefined;
 }
 
-function parseForecastLocations(payload: CwaResponse): CwaForecast[] {
-  const locations = payload.records?.location ?? [];
-  if (!locations.length) throw new Error("中央氣象署沒有回傳預報資料");
-  const fetchedAt = new Date().toISOString();
-  return locations.map((location) => {
-    const elements = new Map((location.weatherElement ?? []).map((element) => [element.elementName, element]));
-    const timeCount = Math.max(...(location.weatherElement ?? []).map((element) => element.time?.length ?? 0), 0);
-    const periods = Array.from({ length: timeCount }, (_, index) => {
-      const anchor = location.weatherElement?.find((element) => element.time?.[index])?.time?.[index];
-      return {
-        startTime: anchor?.startTime ?? "",
-        endTime: anchor?.endTime ?? "",
-        weather: textParameter(elements, ["Wx", "WeatherDescription"], index),
-        temperature: numberParameter(elements, "T", index),
-        minTemperature: numberParameter(elements, "MinT", index),
-        maxTemperature: numberParameter(elements, "MaxT", index),
-        comfortIndex: textParameter(elements, "CI", index),
-        rainProbability: numberParameter(elements, ["PoP", "PoP6h"], index),
-        windSpeed: numberParameter(elements, ["WS", "WindSpeed"], index),
-      };
-    });
-    return { source: "中央氣象署" as const, fetchedAt, locationName: location.locationName, periods };
+function recordsOf(value: unknown): JsonRecord[] {
+  if (Array.isArray(value)) return value.map(record);
+  return value === undefined ? [] : [record(value)];
+}
+
+function numberValue(value: unknown): number | null {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
+}
+
+function parameterText(element: JsonRecord, index: number): string {
+  const times = recordsOf(valueOf(element, ["time", "Time"]));
+  const time = times[index] ?? {};
+  const parameter = record(valueOf(time, ["parameter", "Parameter", "elementValue", "ElementValue"]));
+  const value = valueOf(parameter, ["parameterName", "ParameterName", "Temperature", "MaxTemperature", "MinTemperature", "ComfortIndexDescription", "ComfortIndex", "ProbabilityOfPrecipitation", "WeatherDescription", "Weather", "WindSpeed"]);
+  return value === undefined || value === null || String(value).trim() === "" ? "資料整理中" : String(value).trim();
+}
+
+function parameterNumber(element: JsonRecord, index: number): number | null {
+  const text = parameterText(element, index);
+  return text === "資料整理中" ? null : numberValue(text);
+}
+
+function elementByName(elements: JsonRecord[], names: string[]): JsonRecord {
+  const wanted = names.map((name) => name.toLowerCase());
+  return elements.find((element) => wanted.includes(String(valueOf(element, ["elementName", "ElementName"])).toLowerCase())) ?? {};
+}
+
+function parseLocation(location: JsonRecord, fetchedAt: string): CwaForecast {
+  const rawElements = recordsOf(valueOf(location, ["weatherElement", "WeatherElement"]));
+  const weather = elementByName(rawElements, ["wx", "weather", "weatherdescription"]);
+  const temperature = elementByName(rawElements, ["t", "temperature"]);
+  const minTemperature = elementByName(rawElements, ["mint", "mintemperature"]);
+  const maxTemperature = elementByName(rawElements, ["maxt", "maxtemperature"]);
+  const comfort = elementByName(rawElements, ["ci", "comfortindex", "comfortindexdescription"]);
+  const rain = elementByName(rawElements, ["pop", "pop6h", "probabilityofprecipitation"]);
+  const wind = elementByName(rawElements, ["ws", "windspeed"]);
+  const timeCount = Math.max(...rawElements.map((element) => recordsOf(valueOf(element, ["time", "Time"])).length), 0);
+  const anchorElement = rawElements[0] ?? {};
+  const periods = Array.from({ length: timeCount }, (_, index) => {
+    const time = recordsOf(valueOf(anchorElement, ["time", "Time"]))[index];
+    return {
+      startTime: String(valueOf(time, ["startTime", "StartTime", "dataTime", "DataTime"]) ?? ""),
+      endTime: String(valueOf(time, ["endTime", "EndTime"]) ?? ""),
+      weather: parameterText(weather, index), temperature: parameterNumber(temperature, index),
+      minTemperature: parameterNumber(minTemperature, index), maxTemperature: parameterNumber(maxTemperature, index),
+      comfortIndex: parameterText(comfort, index), rainProbability: parameterNumber(rain, index), windSpeed: parameterNumber(wind, index),
+    };
   });
+  return { source: "中央氣象署", fetchedAt, locationName: String(valueOf(location, ["locationName", "LocationName"]) ?? "未命名地區"), periods };
+}
+
+function parseForecastLocations(payload: JsonRecord): CwaForecast[] {
+  const records = record(valueOf(payload, ["records", "Records"]));
+  const directLocations = recordsOf(valueOf(records, ["location", "Location"]));
+  const groups = recordsOf(valueOf(records, ["locations", "Locations"]));
+  const nestedLocations = groups.flatMap((group) => recordsOf(valueOf(group, ["location", "Location"])));
+  const locations = [...directLocations, ...nestedLocations];
+  if (!locations.length) throw new Error("中央氣象署沒有回傳鄉鎮或縣市資料");
+  const fetchedAt = new Date().toISOString();
+  return locations.map((location) => parseLocation(location, fetchedAt));
+}
+
+async function fetchCwaJson(url: URL, tag: string): Promise<CwaForecast[]> {
+  const response = await fetch(url, { cache: "force-cache", next: { revalidate: CWA_CACHE_TTL_SECONDS, tags: [tag] } });
+  if (!response.ok) throw new Error(`中央氣象署 API 回應 ${response.status}`);
+  return parseForecastLocations(await response.json() as JsonRecord);
 }
 
 export async function fetchCwaForecast(city?: string): Promise<CwaForecast[]> {
   const apiKey = process.env.CWA_API_KEY;
   if (!apiKey) throw new Error("CWA_API_KEY is not configured");
-
   const url = new URL(CWA_FORECAST_URL);
-  url.searchParams.set("Authorization", apiKey);
-  url.searchParams.set("format", "JSON");
+  url.searchParams.set("Authorization", apiKey); url.searchParams.set("format", "JSON");
   const normalizedCity = city ? normalizeTaiwanCity(city) : null;
   if (city && !normalizedCity) throw new Error(`找不到台灣縣市：${city}`);
   if (normalizedCity) url.searchParams.set("locationName", normalizedCity);
-
-  // Use Next.js Data Cache rather than a process-global Map: it is shared by
-  // Vercel Serverless instances when backed by the deployment Data Cache.
-  // The URL contains the normalized city, so each city/all-cities query has
-  // its own cache entry while repeated requests within the TTL avoid CWA calls.
-  const response = await fetch(url, {
-    cache: "force-cache",
-    next: { revalidate: CWA_CACHE_TTL_SECONDS, tags: ["cwa-weather"] },
-  });
-  if (!response.ok) throw new Error(`中央氣象署 API 回應 ${response.status}`);
-  return parseForecastLocations((await response.json()) as CwaResponse);
+  return fetchCwaJson(url, "cwa-weather");
 }
 
 export async function fetchCwaTownshipForecast(city: string): Promise<CwaForecast[]> {
@@ -153,16 +164,9 @@ export async function fetchCwaTownshipForecast(city: string): Promise<CwaForecas
   if (!normalizedCity || !datasetId) throw new Error(`找不到鄉鎮預報資料集：${city}`);
   const apiKey = process.env.CWA_API_KEY;
   if (!apiKey) throw new Error("CWA_API_KEY is not configured");
-
   const url = new URL(`${CWA_TOWNSHIP_URL_PREFIX}${datasetId}`);
-  url.searchParams.set("Authorization", apiKey);
-  url.searchParams.set("format", "JSON");
-  const response = await fetch(url, {
-    cache: "force-cache",
-    next: { revalidate: CWA_CACHE_TTL_SECONDS, tags: [`cwa-township-${normalizedCity}`] },
-  });
-  if (!response.ok) throw new Error(`中央氣象署鄉鎮 API 回應 ${response.status}`);
-  return parseForecastLocations((await response.json()) as CwaResponse);
+  url.searchParams.set("Authorization", apiKey); url.searchParams.set("format", "JSON");
+  return fetchCwaJson(url, `cwa-township-${normalizedCity}`);
 }
 
 export function formatForecastForAi(forecasts: CwaForecast[]): string {
