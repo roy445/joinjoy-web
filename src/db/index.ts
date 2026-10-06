@@ -6,7 +6,17 @@ import { recordDbQuery } from "@/lib/db-monitor";
 const databaseUrl = process.env.DATABASE_URL;
 export const isDatabaseConfigured = Boolean(databaseUrl);
 const connectionString = databaseUrl ?? "postgresql://127.0.0.1:5432/joinjoy_unconfigured";
-const poolMax = Math.min(3, Math.max(1, Number(process.env.DB_POOL_MAX ?? 1)));
+
+function boundedInteger(value: string | undefined, fallback: number, min: number, max: number) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? Math.min(max, Math.max(min, Math.floor(parsed))) : fallback;
+}
+
+// Keep the pool small for Vercel/serverless instances, but allow normal cold
+// starts and cross-region TLS connections enough time to establish.
+const poolMax = boundedInteger(process.env.DB_POOL_MAX, 1, 1, 3);
+const connectionTimeoutMillis = boundedInteger(process.env.DB_CONNECTION_TIMEOUT_MS, 10_000, 2_000, 30_000);
+const idleTimeoutMillis = boundedInteger(process.env.DB_IDLE_TIMEOUT_MS, 10_000, 1_000, 60_000);
 
 const globalForDb = globalThis as typeof globalThis & {
   __arenaNextJsPostgresqlPool?: Pool;
@@ -16,15 +26,17 @@ export const pool =
   globalForDb.__arenaNextJsPostgresqlPool ??
   new Pool({
     connectionString,
-    connectionTimeoutMillis: 1000,
-    idleTimeoutMillis: 10000,
+    connectionTimeoutMillis,
+    idleTimeoutMillis,
     maxUses: 500,
     max: poolMax,
+    keepAlive: true,
+    allowExitOnIdle: true,
   });
 
-if (process.env.NODE_ENV !== "production") {
-  globalForDb.__arenaNextJsPostgresqlPool = pool;
-}
+// Reuse the pool in warm serverless instances and during local hot reload.
+// The small max value above prevents an unbounded connection fan-out.
+globalForDb.__arenaNextJsPostgresqlPool = pool;
 
 const globalForDbMonitor = globalThis as typeof globalThis & { __joinjoyDbQueryWrapped?: boolean };
 if (!globalForDbMonitor.__joinjoyDbQueryWrapped) {
