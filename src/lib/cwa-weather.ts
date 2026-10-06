@@ -36,6 +36,7 @@ export type CwaForecastPeriod = {
   temperature: number | null;
   minTemperature: number | null;
   maxTemperature: number | null;
+  comfortIndex: string;
   rainProbability: number | null;
   windSpeed: number | null;
 };
@@ -121,6 +122,7 @@ export async function fetchCwaForecast(city?: string): Promise<CwaForecast[]> {
         temperature: numberParameter(elements, "T", index),
         minTemperature: numberParameter(elements, "MinT", index),
         maxTemperature: numberParameter(elements, "MaxT", index),
+        comfortIndex: textParameter(elements, "CI", index),
         rainProbability: numberParameter(elements, "PoP", index),
         windSpeed: numberParameter(elements, "WS", index),
       };
@@ -133,6 +135,6 @@ export function formatForecastForAi(forecasts: CwaForecast[]): string {
   return forecasts.map((forecast) => {
     const current = forecast.periods[0];
     if (!current) return `${forecast.locationName}：目前沒有可用預報`;
-    return `${forecast.locationName}：${current.weather}，${current.minTemperature ?? "-"}–${current.maxTemperature ?? "-"}°C，降雨機率 ${current.rainProbability ?? "-"}%（${current.startTime} 至 ${current.endTime}）`;
+    return `${forecast.locationName}：${current.weather}，最高 ${current.maxTemperature ?? "-"}°C、最低 ${current.minTemperature ?? "-"}°C，${current.comfortIndex}，降雨機率 ${current.rainProbability ?? "-"}%（${current.startTime} 至 ${current.endTime}）`;
   }).join("；");
 }
