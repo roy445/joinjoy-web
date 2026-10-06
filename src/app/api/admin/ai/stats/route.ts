@@ -38,24 +38,53 @@ export async function GET() {
     const growth = yestRow.total > 0 ? Math.round(((totalCount - yestRow.total) / yestRow.total) * 100) : 0;
     const successRate = totalCount > 0 ? Math.round((Number(statsRow.success || 0) / totalCount) * 100) : 100;
 
-    // 2. Provider Distribution
-    const providerRows = await db.execute(sql`
-      SELECT provider, COUNT(*) as count
+    // 2. Four Gemini API slots. Historical "gemini" records are assigned to slot 1.
+    const geminiRows = await db.execute(sql`
+      SELECT
+        provider,
+        COUNT(*) as count,
+        COUNT(*) FILTER (WHERE status = 'success') as success,
+        COUNT(*) FILTER (WHERE status = 'error') as errors,
+        COALESCE(SUM(prompt_tokens), 0) as prompt_tokens,
+        COALESCE(SUM(completion_tokens), 0) as completion_tokens,
+        COALESCE(AVG(latency_ms) FILTER (WHERE status = 'success'), 0) as avg_latency
       FROM ai_usage_logs
-      WHERE created_at >= ${today} AND provider = 'gemini'
+      WHERE created_at >= ${today}
+        AND (provider = 'gemini' OR provider LIKE 'gemini-%')
       GROUP BY provider
     `);
-
-    const providers = providerRows.rows.map((r: any) => ({
-      name: r.provider,
-      count: Number(r.count),
-      share: totalCount > 0 ? Math.round((Number(r.count) / totalCount) * 100) : 0
-    }));
+    const geminiApis = Array.from({ length: 4 }, (_, index) => {
+      const slot = index + 1;
+      const row = geminiRows.rows.find((item: any) => {
+        const provider = String(item.provider);
+        return provider === `gemini-${slot}` || (slot === 1 && provider === "gemini");
+      }) as any;
+      const promptTokens = Number(row?.prompt_tokens || 0);
+      const completionTokens = Number(row?.completion_tokens || 0);
+      return {
+        slot,
+        name: `Gemini API ${slot}`,
+        configured: Boolean(process.env[`GEMINI_API_KEY_${slot}`] || (slot === 1 && process.env.GEMINI_API_KEY)),
+        requests: Number(row?.count || 0),
+        success: Number(row?.success || 0),
+        errors: Number(row?.errors || 0),
+        promptTokens,
+        completionTokens,
+        totalTokens: promptTokens + completionTokens,
+        avgLatency: Math.round(Number(row?.avg_latency || 0)),
+      };
+    });
+    const geminiRequestTotal = geminiApis.reduce((sum, item) => sum + item.requests, 0);
+    const providers = [{
+      name: "gemini",
+      count: geminiRequestTotal,
+      share: totalCount > 0 ? Math.round((geminiRequestTotal / totalCount) * 100) : 0
+    }];
 
     // 3. Recent Errors
     const recentErrorRows = await db.select()
       .from(aiUsageLogs)
-      .where(and(eq(aiUsageLogs.provider, "gemini"), eq(aiUsageLogs.status, "error")))
+      .where(and(sql`${aiUsageLogs.provider} LIKE 'gemini%'`, eq(aiUsageLogs.status, "error")))
       .orderBy(desc(aiUsageLogs.createdAt))
       .limit(5);
 
@@ -71,6 +100,7 @@ export async function GET() {
         monthlyTotal: 0 // Simplified for now
       },
       providers,
+      geminiApis,
       recentErrors: recentErrorRows.map(r => ({
         time: r.createdAt,
         provider: r.provider,

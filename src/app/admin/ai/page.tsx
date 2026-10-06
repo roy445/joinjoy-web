@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { SectionTitle } from "@/components/ui";
-import { Brain, Zap, AlertCircle, Clock, BarChart3, PieChart } from "lucide-react";
+import { Brain, Zap, AlertCircle, Clock, BarChart3, PieChart, KeyRound } from "lucide-react";
 
 function AIStatCard({ label, value, subValue, icon, colorClass }: any) {
   return (
@@ -69,6 +69,42 @@ export default function AdminAIPage() {
           colorClass="bg-coral-500/10 text-coral-600"
         />
       </div>
+
+      <section className="card-surface rounded-[2rem] p-8">
+        <div className="mb-6 flex items-center justify-between gap-4">
+          <div>
+            <div className="flex items-center gap-3">
+              <KeyRound className="text-brand-500" />
+              <h3 className="text-xl font-black text-main">Gemini API 使用量</h3>
+            </div>
+            <p className="mt-2 text-sm text-soft">四組 API 槽位分開統計今日請求、Token、成功率與延遲；API 金鑰不會顯示。</p>
+          </div>
+          <span className="rounded-full bg-brand-500/10 px-3 py-1 text-xs font-black text-brand-600">今日</span>
+        </div>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          {(stats.geminiApis || []).map((api: any) => {
+            const successRate = api.requests > 0 ? Math.round((api.success / api.requests) * 100) : 0;
+            return (
+              <div key={api.slot} className="rounded-2xl border border-brand-100 bg-app-soft p-5">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="font-black text-main">{api.name}</p>
+                  <span className={`rounded-full px-2 py-1 text-[10px] font-black ${api.configured ? "bg-emerald-500/10 text-emerald-600" : "bg-slate-500/10 text-soft"}`}>
+                    {api.configured ? "已設定" : "未設定"}
+                  </span>
+                </div>
+                <p className="mt-4 text-3xl font-black text-main">{api.requests.toLocaleString()}</p>
+                <p className="text-xs font-bold text-soft">今日請求</p>
+                <div className="mt-4 grid grid-cols-2 gap-2 text-xs">
+                  <div className="rounded-xl bg-surface p-2"><span className="block text-soft">Token</span><strong className="text-main">{api.totalTokens.toLocaleString()}</strong></div>
+                  <div className="rounded-xl bg-surface p-2"><span className="block text-soft">成功率</span><strong className="text-main">{successRate}%</strong></div>
+                  <div className="rounded-xl bg-surface p-2"><span className="block text-soft">平均延遲</span><strong className="text-main">{api.avgLatency}ms</strong></div>
+                  <div className="rounded-xl bg-surface p-2"><span className="block text-soft">錯誤</span><strong className="text-coral-600">{api.errors}</strong></div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </section>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         {/* Provider Distribution */}

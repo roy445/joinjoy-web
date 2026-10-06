@@ -22,8 +22,10 @@ type ProviderConfig = {
   model: string;
   priority?: number;
   apiKey?: string;
+  slot: number;
 };
 
+const GEMINI_API_SLOTS = 4;
 const DEFAULT_GEMINI_MODEL = "gemini-3.5-flash-lite";
 
 function normalizeGeminiModel(model: string | undefined): string {
@@ -44,8 +46,19 @@ function normalizeGeminiModel(model: string | undefined): string {
   return normalized;
 }
 
-function envKeyForProvider(name: string): string | undefined {
-  return name === "gemini" ? process.env.GEMINI_API_KEY : undefined;
+function geminiApiKey(slot: number): string | undefined {
+  return process.env[`GEMINI_API_KEY_${slot}`] || (slot === 1 ? process.env.GEMINI_API_KEY : undefined);
+}
+
+function geminiProviders(model: string): ProviderConfig[] {
+  return Array.from({ length: GEMINI_API_SLOTS }, (_, index) => index + 1)
+    .map((slot) => ({
+      name: `gemini-${slot}`,
+      model: normalizeGeminiModel(model),
+      slot,
+      apiKey: geminiApiKey(slot),
+    }))
+    .filter((provider) => Boolean(provider.apiKey));
 }
 
 /**
@@ -82,13 +95,8 @@ export class AIProviderManager {
     // API keys are deliberately never read from or written to the database.
     // The database stores routing metadata only; secrets remain Vercel server env vars.
     return configured
-      .map((provider) => ({
-        name: provider.name.toLowerCase(),
-        model: normalizeGeminiModel(provider.model),
-        priority: provider.priority,
-        apiKey: envKeyForProvider(provider.name.toLowerCase()),
-      }))
-      .filter((provider) => provider.name === "gemini" && Boolean(provider.apiKey));
+      .filter((provider) => provider.name.toLowerCase() === "gemini")
+      .flatMap((provider) => geminiProviders(provider.model));
   }
 
   /**
@@ -141,7 +149,7 @@ export class AIProviderManager {
       throw new Error(`Missing server configuration for ${name}`);
     }
 
-    if (name === "gemini") {
+    if (name.startsWith("gemini-")) {
       // Gemini REST path requires models/{model}; normalize old settings first.
       const geminiModel = normalizeGeminiModel(model);
       const response = await fetch(
@@ -169,9 +177,13 @@ export class AIProviderManager {
       
       return {
         message: text,
-        provider: "gemini",
+        provider: name,
         model: geminiModel,
-        };
+        usage: {
+          promptTokens: Number(data.usageMetadata?.promptTokenCount || 0),
+          completionTokens: Number(data.usageMetadata?.candidatesTokenCount || 0),
+        },
+      };
     }
 
     throw new Error(`Unsupported AI provider: ${name}`);
@@ -181,9 +193,7 @@ export class AIProviderManager {
    * Environment fallback using Gemini only.
    */
   private async chatWithEnv(userId: number, messages: AIMessage[]): Promise<AIResponse> {
-    const providers = [
-      { name: "gemini", apiKey: process.env.GEMINI_API_KEY, model: normalizeGeminiModel(process.env.GEMINI_MODEL) }
-    ].filter(p => !!p.apiKey);
+    const providers = geminiProviders(process.env.GEMINI_MODEL || DEFAULT_GEMINI_MODEL);
 
     if (providers.length === 0) {
       throw new Error("No AI provider configured in environment variables");
