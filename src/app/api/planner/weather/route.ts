@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { CWA_CACHE_TTL_SECONDS, fetchCwaForecast, taiwanNow } from "@/lib/cwa-weather";
+import { CWA_CACHE_TTL_SECONDS, fetchCwaForecast, fetchCwaTownshipForecast, taiwanNow } from "@/lib/cwa-weather";
 
 type WeatherRequest = { origin?: string; date?: string };
 
@@ -18,7 +18,13 @@ function todayInTaiwan() {
 export async function GET(request: NextRequest) {
   const city = request.nextUrl.searchParams.get("city")?.trim();
   if (request.nextUrl.searchParams.get("all") === "1") return getAllWeather();
+  if (request.nextUrl.searchParams.get("townships") === "1") {
+    if (!city) return jsonError("請提供縣市名稱以取得鄉鎮市區", 400);
+    return getTownships(city);
+  }
   if (!city) return jsonError("請提供縣市名稱，例如：台北市", 400);
+  const township = request.nextUrl.searchParams.get("township")?.trim();
+  if (township) return getTownshipWeather(city, township);
   return getWeather(city, todayInTaiwan());
 }
 
@@ -128,5 +134,53 @@ async function getAllWeather() {
     if (message === "CWA_API_KEY is not configured") return jsonError("尚未設定中央氣象署 API key，請在 Vercel Environment Variables 設定 CWA_API_KEY", 503);
     console.error("[planner/weather] CWA all-city request failed", { message });
     return jsonError("目前無法取得全台縣市天氣資料，請稍後再試", 502);
+  }
+}
+
+async function getTownships(city: string) {
+  try {
+    const forecasts = await fetchCwaTownshipForecast(city);
+    const response = NextResponse.json({ source: "中央氣象署", locations: forecasts.map((forecast) => forecast.locationName).sort((a, b) => a.localeCompare(b, "zh-Hant")) });
+    response.headers.set("Cache-Control", `public, s-maxage=${CWA_CACHE_TTL_SECONDS}, stale-while-revalidate=60`);
+    return response;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "weather service error";
+    if (message === "CWA_API_KEY is not configured") return jsonError("尚未設定中央氣象署 API key，請在 Vercel Environment Variables 設定 CWA_API_KEY", 503);
+    console.error("[planner/weather] CWA township list request failed", { message });
+    return jsonError("目前無法取得鄉鎮市區清單，請稍後再試", 502);
+  }
+}
+
+async function getTownshipWeather(city: string, township: string) {
+  try {
+    const forecasts = await fetchCwaTownshipForecast(city);
+    const forecast = forecasts.find((item) => item.locationName === township || item.locationName.includes(township));
+    if (!forecast) return jsonError(`找不到鄉鎮市區：${township}`, 404);
+    const periods = forecast.periods.slice(0, 16).map((period) => ({
+      label: period.startTime.slice(11, 16), summary: period.weather, weatherCode: 0,
+      temperature: period.temperature ?? period.maxTemperature ?? 0, minTemperature: period.minTemperature,
+      maxTemperature: period.maxTemperature, comfortIndex: period.comfortIndex,
+      precipitationProbability: period.rainProbability ?? 0, windSpeed: period.windSpeed,
+      startTime: period.startTime, endTime: period.endTime,
+    }));
+    const current = periods[0];
+    const response = NextResponse.json({
+      source: "中央氣象署", sourceUrl: "https://opendata.cwa.gov.tw/dataset/forecast/F-D0047-093",
+      sourceDataset: "鄉鎮天氣預報-全臺灣各鄉鎮市區預報資料", fetchedAt: forecast.fetchedAt,
+      date: todayInTaiwan(), currentTime: `${taiwanNow().date} ${taiwanNow().weekday} ${taiwanNow().time}`,
+      selectedPeriodIndex: 0, location: { name: `${city} ${forecast.locationName}`, admin1: city },
+      summary: current?.summary ?? "資料整理中", weatherCode: 0, periods,
+      minTemperature: current?.minTemperature ?? current?.temperature ?? 0, maxTemperature: current?.maxTemperature ?? current?.temperature ?? 0,
+      comfortIndex: current?.comfortIndex ?? "資料整理中", precipitationProbability: current?.precipitationProbability ?? 0,
+      precipitationMm: null, windSpeed: current?.windSpeed ?? 0, rainy: (current?.precipitationProbability ?? 0) >= 40,
+      hot: (current?.temperature ?? 0) >= 32, recommendation: (current?.precipitationProbability ?? 0) >= 40 ? "鄉鎮預報有降雨可能，建議攜帶雨具。" : "出發前仍建議再次查看最新鄉鎮預報。",
+    });
+    response.headers.set("Cache-Control", `public, s-maxage=${CWA_CACHE_TTL_SECONDS}, stale-while-revalidate=60`);
+    return response;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "weather service error";
+    if (message === "CWA_API_KEY is not configured") return jsonError("尚未設定中央氣象署 API key，請在 Vercel Environment Variables 設定 CWA_API_KEY", 503);
+    console.error("[planner/weather] CWA township request failed", { message });
+    return jsonError("目前無法取得鄉鎮市區天氣資料，請稍後再試", 502);
   }
 }

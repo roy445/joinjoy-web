@@ -1,4 +1,5 @@
 const CWA_FORECAST_URL = "https://opendata.cwa.gov.tw/api/v1/rest/datastore/F-C0032-001";
+const CWA_TOWNSHIP_URL_PREFIX = "https://opendata.cwa.gov.tw/api/v1/rest/datastore/F-D0047-";
 export const CWA_CACHE_TTL_SECONDS = 10 * 60;
 const TAIPEI_TIME_ZONE = "Asia/Taipei";
 
@@ -21,6 +22,12 @@ const CITY_ALIASES: Record<string, string> = {
   台東: "臺東縣", 臺東: "臺東縣", 台東縣: "臺東縣", 臺東縣: "臺東縣",
   澎湖: "澎湖縣", 澎湖縣: "澎湖縣", 金門: "金門縣", 金門縣: "金門縣",
   馬祖: "連江縣", 連江: "連江縣", 連江縣: "連江縣", 基隆: "基隆市", 基隆市: "基隆市",
+};
+
+const TOWNSHIP_DATASET_BY_CITY: Record<string, string> = {
+  宜蘭縣: "001", 桃園市: "005", 新竹縣: "009", 苗栗縣: "013", 彰化縣: "017", 南投縣: "021", 雲林縣: "025",
+  嘉義縣: "029", 屏東縣: "033", 臺東縣: "037", 花蓮縣: "041", 澎湖縣: "045", 基隆市: "049", 新竹市: "053",
+  嘉義市: "057", 臺北市: "061", 高雄市: "065", 新北市: "069", 臺中市: "073", 臺南市: "077", 連江縣: "081", 金門縣: "085",
 };
 
 type CwaParameter = { parameterName?: string; parameterValue?: string };
@@ -76,14 +83,45 @@ export function taiwanNow(): { iso: string; date: string; time: string; weekday:
   };
 }
 
-function numberParameter(elements: Map<string, CwaWeatherElement>, name: string, index: number): number | null {
-  const raw = elements.get(name)?.time?.[index]?.parameter?.parameterName;
+function numberParameter(elements: Map<string, CwaWeatherElement>, names: string | string[], index: number): number | null {
+  const candidates = Array.isArray(names) ? names : [names];
+  const raw = candidates.map((name) => elements.get(name)?.time?.[index]?.parameter?.parameterName).find((value) => value !== undefined);
   const value = raw === undefined ? Number.NaN : Number(raw);
   return Number.isFinite(value) ? value : null;
 }
 
-function textParameter(elements: Map<string, CwaWeatherElement>, name: string, index: number): string {
-  return elements.get(name)?.time?.[index]?.parameter?.parameterName?.trim() || "資料整理中";
+function textParameter(elements: Map<string, CwaWeatherElement>, names: string | string[], index: number): string {
+  const candidates = Array.isArray(names) ? names : [names];
+  for (const name of candidates) {
+    const value = elements.get(name)?.time?.[index]?.parameter?.parameterName?.trim();
+    if (value) return value;
+  }
+  return "資料整理中";
+}
+
+function parseForecastLocations(payload: CwaResponse): CwaForecast[] {
+  const locations = payload.records?.location ?? [];
+  if (!locations.length) throw new Error("中央氣象署沒有回傳預報資料");
+  const fetchedAt = new Date().toISOString();
+  return locations.map((location) => {
+    const elements = new Map((location.weatherElement ?? []).map((element) => [element.elementName, element]));
+    const timeCount = Math.max(...(location.weatherElement ?? []).map((element) => element.time?.length ?? 0), 0);
+    const periods = Array.from({ length: timeCount }, (_, index) => {
+      const anchor = location.weatherElement?.find((element) => element.time?.[index])?.time?.[index];
+      return {
+        startTime: anchor?.startTime ?? "",
+        endTime: anchor?.endTime ?? "",
+        weather: textParameter(elements, ["Wx", "WeatherDescription"], index),
+        temperature: numberParameter(elements, "T", index),
+        minTemperature: numberParameter(elements, "MinT", index),
+        maxTemperature: numberParameter(elements, "MaxT", index),
+        comfortIndex: textParameter(elements, "CI", index),
+        rainProbability: numberParameter(elements, ["PoP", "PoP6h"], index),
+        windSpeed: numberParameter(elements, ["WS", "WindSpeed"], index),
+      };
+    });
+    return { source: "中央氣象署" as const, fetchedAt, locationName: location.locationName, periods };
+  });
 }
 
 export async function fetchCwaForecast(city?: string): Promise<CwaForecast[]> {
@@ -106,29 +144,25 @@ export async function fetchCwaForecast(city?: string): Promise<CwaForecast[]> {
     next: { revalidate: CWA_CACHE_TTL_SECONDS, tags: ["cwa-weather"] },
   });
   if (!response.ok) throw new Error(`中央氣象署 API 回應 ${response.status}`);
-  const payload = (await response.json()) as CwaResponse;
-  const locations = payload.records?.location ?? [];
-  if (!locations.length) throw new Error("中央氣象署沒有回傳縣市預報");
+  return parseForecastLocations((await response.json()) as CwaResponse);
+}
 
-  return locations.map((location) => {
-    const elements = new Map((location.weatherElement ?? []).map((element) => [element.elementName, element]));
-    const timeCount = Math.max(...(location.weatherElement ?? []).map((element) => element.time?.length ?? 0), 0);
-    const periods = Array.from({ length: timeCount }, (_, index) => {
-      const anchor = location.weatherElement?.find((element) => element.time?.[index])?.time?.[index];
-      return {
-        startTime: anchor?.startTime ?? "",
-        endTime: anchor?.endTime ?? "",
-        weather: textParameter(elements, "Wx", index),
-        temperature: numberParameter(elements, "T", index),
-        minTemperature: numberParameter(elements, "MinT", index),
-        maxTemperature: numberParameter(elements, "MaxT", index),
-        comfortIndex: textParameter(elements, "CI", index),
-        rainProbability: numberParameter(elements, "PoP", index),
-        windSpeed: numberParameter(elements, "WS", index),
-      };
-    });
-    return { source: "中央氣象署" as const, fetchedAt: new Date().toISOString(), locationName: location.locationName, periods };
+export async function fetchCwaTownshipForecast(city: string): Promise<CwaForecast[]> {
+  const normalizedCity = normalizeTaiwanCity(city);
+  const datasetId = normalizedCity ? TOWNSHIP_DATASET_BY_CITY[normalizedCity] : null;
+  if (!normalizedCity || !datasetId) throw new Error(`找不到鄉鎮預報資料集：${city}`);
+  const apiKey = process.env.CWA_API_KEY;
+  if (!apiKey) throw new Error("CWA_API_KEY is not configured");
+
+  const url = new URL(`${CWA_TOWNSHIP_URL_PREFIX}${datasetId}`);
+  url.searchParams.set("Authorization", apiKey);
+  url.searchParams.set("format", "JSON");
+  const response = await fetch(url, {
+    cache: "force-cache",
+    next: { revalidate: CWA_CACHE_TTL_SECONDS, tags: [`cwa-township-${normalizedCity}`] },
   });
+  if (!response.ok) throw new Error(`中央氣象署鄉鎮 API 回應 ${response.status}`);
+  return parseForecastLocations((await response.json()) as CwaResponse);
 }
 
 export function formatForecastForAi(forecasts: CwaForecast[]): string {
