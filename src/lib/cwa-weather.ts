@@ -92,7 +92,7 @@ function parameterText(element: JsonRecord, index: number): string {
   const times = recordsOf(valueOf(element, ["time", "Time"]));
   const time = times[index] ?? {};
   const parameter = record(valueOf(time, ["parameter", "Parameter", "elementValue", "ElementValue"]));
-  const value = valueOf(parameter, ["parameterName", "ParameterName", "Temperature", "temperature", "溫度", "MaxTemperature", "maxTemperature", "最高溫度", "MinTemperature", "minTemperature", "最低溫度", "ComfortIndexDescription", "comfortIndexDescription", "舒適度描述", "ComfortIndex", "comfortIndex", "舒適度指數", "ProbabilityOfPrecipitation", "probabilityOfPrecipitation", "降雨機率", "WeatherDescription", "weatherDescription", "天氣預報綜合描述", "Weather", "weather", "天氣現象", "WindSpeed", "windSpeed", "風速"]);
+  const value = valueOf(parameter, ["parameterName", "ParameterName", "value", "Value", "Temperature", "temperature", "溫度", "MaxTemperature", "maxTemperature", "最高溫度", "MinTemperature", "minTemperature", "最低溫度", "ComfortIndexDescription", "comfortIndexDescription", "舒適度描述", "ComfortIndex", "comfortIndex", "舒適度指數", "ProbabilityOfPrecipitation", "probabilityOfPrecipitation", "降雨機率", "WeatherDescription", "weatherDescription", "天氣預報綜合描述", "Weather", "weather", "天氣現象", "WindSpeed", "windSpeed", "風速"]);
   return value === undefined || value === null || String(value).trim() === "" ? "資料整理中" : String(value).trim();
 }
 
@@ -142,9 +142,20 @@ function parseForecastLocations(payload: JsonRecord): CwaForecast[] {
 }
 
 async function fetchCwaJson(url: URL, tag: string): Promise<CwaForecast[]> {
-  const response = await fetch(url, { cache: "force-cache", next: { revalidate: CWA_CACHE_TTL_SECONDS, tags: [tag] } });
-  if (!response.ok) throw new Error(`中央氣象署 API 回應 ${response.status}`);
-  return parseForecastLocations(await response.json() as JsonRecord);
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 8_000);
+  try {
+    const response = await fetch(url, { cache: "force-cache", signal: controller.signal, next: { revalidate: CWA_CACHE_TTL_SECONDS, tags: [tag] } });
+    if (!response.ok) throw new Error(response.status >= 500 ? "CWA_API_UNAVAILABLE" : `中央氣象署 API 回應 ${response.status}`);
+    return parseForecastLocations(await response.json() as JsonRecord);
+  } catch (error) {
+    if (error instanceof DOMException && error.name === "AbortError") throw new Error("CWA_API_TIMEOUT");
+    if (error instanceof Error && error.message === "CWA_API_UNAVAILABLE") throw error;
+    if (error instanceof SyntaxError) throw new Error("CWA_API_INVALID_RESPONSE");
+    throw new Error("CWA_API_UNAVAILABLE");
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 export async function fetchCwaForecast(city?: string): Promise<CwaForecast[]> {

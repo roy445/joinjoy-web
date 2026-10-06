@@ -7,6 +7,14 @@ function jsonError(message: string, status: number) {
   return NextResponse.json({ error: message }, { status });
 }
 
+function cwaErrorResponse(error: unknown, fallback: string) {
+  const message = error instanceof Error ? error.message : "";
+  if (message === "CWA_API_TIMEOUT") return NextResponse.json({ error: "中央氣象署目前回應較慢，請稍後再試。", code: "CWA_TIMEOUT", degraded: true }, { status: 504 });
+  if (message === "CWA_API_UNAVAILABLE") return NextResponse.json({ error: "中央氣象署服務暫時無法連線，請稍後重試。", code: "CWA_UNAVAILABLE", degraded: true }, { status: 503 });
+  if (message === "CWA_API_INVALID_RESPONSE") return NextResponse.json({ error: "中央氣象署回傳資料格式暫時異常，請稍後再試。", code: "CWA_INVALID_RESPONSE", degraded: true }, { status: 502 });
+  return jsonError(fallback, 502);
+}
+
 function todayInTaiwan() {
   const parts = new Intl.DateTimeFormat("en-CA", {
     timeZone: "Asia/Taipei", year: "numeric", month: "2-digit", day: "2-digit",
@@ -40,6 +48,7 @@ async function getWeather(city: string, requestedDate: string) {
   try {
     const [forecast] = await fetchCwaForecast(city);
     if (!forecast) return jsonError(`找不到出發地：${city}`, 422);
+    if (!forecast.periods.some((period) => period.temperature !== null || period.weather !== "資料整理中")) throw new Error("CWA_API_INVALID_RESPONSE");
 
     const now = Date.now();
     const currentIndex = forecast.periods.findIndex((period) => {
@@ -98,7 +107,7 @@ async function getWeather(city: string, requestedDate: string) {
     const message = error instanceof Error ? error.message : "weather service error";
     if (message === "CWA_API_KEY is not configured") return jsonError("尚未設定中央氣象署 API key，請在 Vercel Environment Variables 設定 CWA_API_KEY", 503);
     console.error("[planner/weather] CWA request failed", { message });
-    return jsonError("目前無法取得中央氣象署天氣資料，請稍後再試", 502);
+    return cwaErrorResponse(error, "目前無法取得中央氣象署天氣資料，請稍後再試");
   }
 }
 
@@ -133,7 +142,7 @@ async function getAllWeather() {
     const message = error instanceof Error ? error.message : "weather service error";
     if (message === "CWA_API_KEY is not configured") return jsonError("尚未設定中央氣象署 API key，請在 Vercel Environment Variables 設定 CWA_API_KEY", 503);
     console.error("[planner/weather] CWA all-city request failed", { message });
-    return jsonError("目前無法取得全台縣市天氣資料，請稍後再試", 502);
+    return cwaErrorResponse(error, "目前無法取得全台縣市天氣資料，請稍後再試");
   }
 }
 
@@ -147,7 +156,7 @@ async function getTownships(city: string) {
     const message = error instanceof Error ? error.message : "weather service error";
     if (message === "CWA_API_KEY is not configured") return jsonError("尚未設定中央氣象署 API key，請在 Vercel Environment Variables 設定 CWA_API_KEY", 503);
     console.error("[planner/weather] CWA township list request failed", { message });
-    return jsonError("目前無法取得鄉鎮市區清單，請稍後再試", 502);
+    return cwaErrorResponse(error, "目前無法取得鄉鎮市區清單，請稍後再試");
   }
 }
 
@@ -156,6 +165,7 @@ async function getTownshipWeather(city: string, township: string) {
     const forecasts = await fetchCwaTownshipForecast(city);
     const forecast = forecasts.find((item) => item.locationName === township || item.locationName.includes(township));
     if (!forecast) return jsonError(`找不到鄉鎮市區：${township}`, 404);
+    if (!forecast.periods.some((period) => period.temperature !== null || period.weather !== "資料整理中")) throw new Error("CWA_API_INVALID_RESPONSE");
     const periods = forecast.periods.slice(0, 16).map((period) => ({
       label: period.startTime.slice(11, 16), summary: period.weather, weatherCode: 0,
       temperature: period.temperature ?? period.maxTemperature ?? 0, minTemperature: period.minTemperature,
@@ -181,6 +191,6 @@ async function getTownshipWeather(city: string, township: string) {
     const message = error instanceof Error ? error.message : "weather service error";
     if (message === "CWA_API_KEY is not configured") return jsonError("尚未設定中央氣象署 API key，請在 Vercel Environment Variables 設定 CWA_API_KEY", 503);
     console.error("[planner/weather] CWA township request failed", { message });
-    return jsonError("目前無法取得鄉鎮市區天氣資料，請稍後再試", 502);
+    return cwaErrorResponse(error, "目前無法取得鄉鎮市區天氣資料，請稍後再試");
   }
 }
