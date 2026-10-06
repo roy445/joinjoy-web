@@ -1,60 +1,69 @@
-import { drizzle } from "drizzle-orm/node-postgres";
-import { Pool } from "pg";
+import { neon, neonConfig } from "@neondatabase/serverless";
+import { drizzle } from "drizzle-orm/neon-http";
 import * as schema from "./schema";
 import { recordDbQuery } from "@/lib/db-monitor";
 
 const databaseUrl = process.env.DATABASE_URL;
 export const isDatabaseConfigured = Boolean(databaseUrl);
-const connectionString = databaseUrl ?? "postgresql://127.0.0.1:5432/joinjoy_unconfigured";
 
-function boundedInteger(value: string | undefined, fallback: number, min: number, max: number) {
+if (!databaseUrl) {
+  throw new Error("DATABASE_URL is required. Configure it in Vercel Environment Variables.");
+}
+
+function boundedInteger(value: string | undefined, fallback: number, min: number, max: number): number {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? Math.min(max, Math.max(min, Math.floor(parsed))) : fallback;
 }
 
-// Keep the pool small for Vercel/serverless instances, but allow normal cold
-// starts and cross-region TLS connections enough time to establish.
-const poolMax = boundedInteger(process.env.DB_POOL_MAX, 1, 1, 3);
-const connectionTimeoutMillis = boundedInteger(process.env.DB_CONNECTION_TIMEOUT_MS, 10_000, 2_000, 30_000);
-const idleTimeoutMillis = boundedInteger(process.env.DB_IDLE_TIMEOUT_MS, 10_000, 1_000, 60_000);
+const databaseTimeoutMs = boundedInteger(
+  process.env.DB_QUERY_TIMEOUT_MS,
+  10_000,
+  2_000,
+  30_000,
+);
 
-const globalForDb = globalThis as typeof globalThis & {
-  __arenaNextJsPostgresqlPool?: Pool;
-};
+function withStatementTimeout(connectionString: string, timeoutMs: number): string {
+  const url = new URL(connectionString);
+  const existingOptions = url.searchParams.get("options");
+  if (existingOptions?.includes("statement_timeout")) return connectionString;
 
-export const pool =
-  globalForDb.__arenaNextJsPostgresqlPool ??
-  new Pool({
-    connectionString,
-    connectionTimeoutMillis,
-    idleTimeoutMillis,
-    maxUses: 500,
-    max: poolMax,
-    keepAlive: true,
-    allowExitOnIdle: true,
-  });
-
-// Reuse the pool in warm serverless instances and during local hot reload.
-// The small max value above prevents an unbounded connection fan-out.
-globalForDb.__arenaNextJsPostgresqlPool = pool;
-
-const globalForDbMonitor = globalThis as typeof globalThis & { __joinjoyDbQueryWrapped?: boolean };
-if (!globalForDbMonitor.__joinjoyDbQueryWrapped) {
-  const originalQuery = pool.query.bind(pool);
-  pool.query = ((...args: Parameters<Pool["query"]>) => {
-    const startedAt = Date.now();
-    const firstArg = args[0] as unknown;
-    const text = typeof firstArg === "string" ? firstArg : (firstArg as { text?: string } | undefined)?.text || "";
-    const operation = (text.match(/^\s*([a-z]+)/i)?.[1] || "unknown").toUpperCase();
-    const result = (originalQuery as unknown as (...queryArgs: Parameters<Pool["query"]>) => unknown)(...args);
-    const maybePromise = result as { finally?: (callback: () => void) => unknown } | null | undefined;
-    if (maybePromise && typeof maybePromise.finally === "function") {
-      return maybePromise.finally(() => recordDbQuery(operation, Date.now() - startedAt));
-    }
-    recordDbQuery(operation, Date.now() - startedAt);
-    return result;
-  }) as Pool["query"];
-  globalForDbMonitor.__joinjoyDbQueryWrapped = true;
+  const statementTimeoutOption = `-c statement_timeout=${timeoutMs}`;
+  url.searchParams.set(
+    "options",
+    existingOptions ? `${existingOptions} ${statementTimeoutOption}` : statementTimeoutOption,
+  );
+  return url.toString();
 }
 
-export const db = drizzle(pool, { schema });
+function getQueryOperation(init?: RequestInit): string {
+  if (typeof init?.body !== "string") return "UNKNOWN";
+  try {
+    const payload = JSON.parse(init.body) as { query?: string; queries?: Array<{ query?: string }> };
+    const query = payload.query ?? payload.queries?.[0]?.query ?? "";
+    return (query.match(/^\s*([a-z]+)/i)?.[1] ?? "unknown").toUpperCase();
+  } catch {
+    return "UNKNOWN";
+  }
+}
+
+// Neon HTTP requests do not hold a PostgreSQL socket in each Vercel
+// invocation. Abort both connection establishment and query response after a
+// bounded interval rather than allowing a request to hang indefinitely.
+neonConfig.fetchFunction = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+  const startedAt = Date.now();
+  const operation = getQueryOperation(init);
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), databaseTimeoutMs);
+  try {
+    return await fetch(input, { ...init, signal: controller.signal });
+  } finally {
+    clearTimeout(timeout);
+    recordDbQuery(operation, Date.now() - startedAt);
+  }
+};
+
+const sql = neon(withStatementTimeout(databaseUrl, databaseTimeoutMs), {
+  fetchOptions: { cache: "no-store" },
+});
+
+export const db = drizzle(sql, { schema });
