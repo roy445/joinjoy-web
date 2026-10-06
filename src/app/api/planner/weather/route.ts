@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { fetchCwaForecast, taiwanNow } from "@/lib/cwa-weather";
+import { CWA_CACHE_TTL_SECONDS, fetchCwaForecast, taiwanNow } from "@/lib/cwa-weather";
 
 type WeatherRequest = { origin?: string; date?: string };
 
@@ -35,17 +35,22 @@ async function getWeather(city: string, requestedDate: string) {
     if (!forecast) return jsonError(`找不到出發地：${city}`, 422);
 
     const now = Date.now();
-    const current = forecast.periods.find((period) => {
+    const currentIndex = forecast.periods.findIndex((period) => {
       const start = Date.parse(period.startTime);
       const end = Date.parse(period.endTime);
       return Number.isFinite(start) && Number.isFinite(end) && now >= start && now < end;
-    }) ?? forecast.periods[0];
+    });
+    const selectedPeriodIndex = currentIndex >= 0 ? currentIndex : 0;
+    const current = forecast.periods[selectedPeriodIndex] ?? forecast.periods[0];
     const periods = forecast.periods.slice(0, 3).map((period) => ({
       label: period.startTime.slice(11, 16),
       summary: period.weather,
       weatherCode: 0,
       temperature: period.temperature ?? period.maxTemperature ?? 0,
+      minTemperature: period.minTemperature,
+      maxTemperature: period.maxTemperature,
       precipitationProbability: period.rainProbability ?? 0,
+      windSpeed: period.windSpeed,
       startTime: period.startTime,
       endTime: period.endTime,
     }));
@@ -56,11 +61,14 @@ async function getWeather(city: string, requestedDate: string) {
     const hot = Math.max(...maxValues, 0) >= 32;
     const currentTime = taiwanNow();
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       source: "中央氣象署",
+      sourceUrl: "https://opendata.cwa.gov.tw/dataset/forecast/F-C0032-001",
+      sourceDataset: "一般天氣預報-今明36小時天氣預報",
       fetchedAt: forecast.fetchedAt,
       date: requestedDate,
       currentTime: `${currentTime.date} ${currentTime.weekday} ${currentTime.time}`,
+      selectedPeriodIndex,
       location: { name: forecast.locationName, admin1: null },
       summary: current?.weather ?? "資料整理中",
       weatherCode: 0,
@@ -74,6 +82,9 @@ async function getWeather(city: string, requestedDate: string) {
       hot,
       recommendation: rainy ? "中央氣象署預報有降雨可能，建議攜帶雨具並準備室內備案。" : hot ? "午後可能偏熱，建議補充水分並安排遮蔭或室內休息點。" : "目前適合安排城市探索行程，出發前仍建議再次查看最新預報。",
     });
+    response.headers.set("Cache-Control", `public, s-maxage=${CWA_CACHE_TTL_SECONDS}, stale-while-revalidate=60`);
+    response.headers.set("X-Weather-Cache-TTL", `${CWA_CACHE_TTL_SECONDS}s`);
+    return response;
   } catch (error) {
     const message = error instanceof Error ? error.message : "weather service error";
     if (message === "CWA_API_KEY is not configured") return jsonError("尚未設定中央氣象署 API key，請在 Vercel Environment Variables 設定 CWA_API_KEY", 503);

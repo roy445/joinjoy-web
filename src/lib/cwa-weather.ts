@@ -1,4 +1,5 @@
 const CWA_FORECAST_URL = "https://opendata.cwa.gov.tw/api/v1/rest/datastore/F-C0032-001";
+export const CWA_CACHE_TTL_SECONDS = 10 * 60;
 const TAIPEI_TIME_ZONE = "Asia/Taipei";
 
 export const TAIWAN_CITIES = [
@@ -95,7 +96,14 @@ export async function fetchCwaForecast(city?: string): Promise<CwaForecast[]> {
   if (city && !normalizedCity) throw new Error(`找不到台灣縣市：${city}`);
   if (normalizedCity) url.searchParams.set("locationName", normalizedCity);
 
-  const response = await fetch(url, { next: { revalidate: 600 } });
+  // Use Next.js Data Cache rather than a process-global Map: it is shared by
+  // Vercel Serverless instances when backed by the deployment Data Cache.
+  // The URL contains the normalized city, so each city/all-cities query has
+  // its own cache entry while repeated requests within the TTL avoid CWA calls.
+  const response = await fetch(url, {
+    cache: "force-cache",
+    next: { revalidate: CWA_CACHE_TTL_SECONDS, tags: ["cwa-weather"] },
+  });
   if (!response.ok) throw new Error(`中央氣象署 API 回應 ${response.status}`);
   const payload = (await response.json()) as CwaResponse;
   const locations = payload.records?.location ?? [];
