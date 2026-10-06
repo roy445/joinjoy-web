@@ -92,7 +92,7 @@ function parameterText(element: JsonRecord, index: number): string {
   const times = recordsOf(valueOf(element, ["time", "Time"]));
   const time = times[index] ?? {};
   const parameter = record(valueOf(time, ["parameter", "Parameter", "elementValue", "ElementValue"]));
-  const value = valueOf(parameter, ["parameterName", "ParameterName", "Temperature", "MaxTemperature", "MinTemperature", "ComfortIndexDescription", "ComfortIndex", "ProbabilityOfPrecipitation", "WeatherDescription", "Weather", "WindSpeed"]);
+  const value = valueOf(parameter, ["parameterName", "ParameterName", "Temperature", "temperature", "溫度", "MaxTemperature", "maxTemperature", "最高溫度", "MinTemperature", "minTemperature", "最低溫度", "ComfortIndexDescription", "comfortIndexDescription", "舒適度描述", "ComfortIndex", "comfortIndex", "舒適度指數", "ProbabilityOfPrecipitation", "probabilityOfPrecipitation", "降雨機率", "WeatherDescription", "weatherDescription", "天氣預報綜合描述", "Weather", "weather", "天氣現象", "WindSpeed", "windSpeed", "風速"]);
   return value === undefined || value === null || String(value).trim() === "" ? "資料整理中" : String(value).trim();
 }
 
@@ -108,13 +108,13 @@ function elementByName(elements: JsonRecord[], names: string[]): JsonRecord {
 
 function parseLocation(location: JsonRecord, fetchedAt: string): CwaForecast {
   const rawElements = recordsOf(valueOf(location, ["weatherElement", "WeatherElement"]));
-  const weather = elementByName(rawElements, ["wx", "weather", "weatherdescription"]);
-  const temperature = elementByName(rawElements, ["t", "temperature"]);
-  const minTemperature = elementByName(rawElements, ["mint", "mintemperature"]);
-  const maxTemperature = elementByName(rawElements, ["maxt", "maxtemperature"]);
-  const comfort = elementByName(rawElements, ["ci", "comfortindex", "comfortindexdescription"]);
-  const rain = elementByName(rawElements, ["pop", "pop6h", "probabilityofprecipitation"]);
-  const wind = elementByName(rawElements, ["ws", "windspeed"]);
+  const weather = elementByName(rawElements, ["wx", "weather", "weatherdescription", "天氣現象", "天氣描述"]);
+  const temperature = elementByName(rawElements, ["t", "temperature", "溫度"]);
+  const minTemperature = elementByName(rawElements, ["mint", "mintemperature", "最低溫度"]);
+  const maxTemperature = elementByName(rawElements, ["maxt", "maxtemperature", "最高溫度"]);
+  const comfort = elementByName(rawElements, ["ci", "comfortindex", "comfortindexdescription", "舒適度指數", "舒適度"]);
+  const rain = elementByName(rawElements, ["pop", "pop6h", "probabilityofprecipitation", "降雨機率"]);
+  const wind = elementByName(rawElements, ["ws", "windspeed", "風速"]);
   const timeCount = Math.max(...rawElements.map((element) => recordsOf(valueOf(element, ["time", "Time"])).length), 0);
   const anchorElement = rawElements[0] ?? {};
   const periods = Array.from({ length: timeCount }, (_, index) => {
