@@ -262,7 +262,7 @@ export function AppShell({ user, children }: { user: ClientUser | null; children
   );
 
   return (
-    <div className="flex min-h-screen bg-app">
+    <div className="flex h-[100dvh] overflow-hidden bg-app">
       {/* Desktop Sidebar */}
       <aside className="sticky top-0 hidden h-screen w-72 shrink-0 border-r border-[var(--color-border)] bg-app-soft p-5 md:flex">
         {navContent}
@@ -281,7 +281,7 @@ export function AppShell({ user, children }: { user: ClientUser | null; children
         </div>
       )}
 
-      <div className="flex min-w-0 flex-1 flex-col pb-[calc(4.5rem+env(safe-area-inset-bottom))] md:pb-0">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         {/* Topbar */}
         <header className="sticky top-0 z-40 flex w-full items-center gap-3 border-b border-[var(--color-border)] bg-app/90 px-4 py-3 backdrop-blur-md md:px-8">
           <div className="flex shrink-0 items-center gap-3 md:hidden">
@@ -327,11 +327,13 @@ export function AppShell({ user, children }: { user: ClientUser | null; children
           </div>
         </header>
 
-        <SystemAnnouncementBanner />
-        <main key={pathname} className="flex-1 animate-fade-up" style={{ animationDuration: "0.35s" }}>
-          {children}
-        </main>
-        <SiteFooter />
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain pb-[calc(4.5rem+env(safe-area-inset-bottom))] md:pb-0">
+          <SystemAnnouncementBanner />
+          <main key={pathname} className="animate-fade-up" style={{ animationDuration: "0.35s" }}>
+            {children}
+          </main>
+          <SiteFooter />
+        </div>
       </div>
 
       {/* Mobile bottom nav */}
