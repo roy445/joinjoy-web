@@ -416,6 +416,22 @@ a, button {
 .hide-scrollbar::-webkit-scrollbar { display: none; }
 .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
+/* Keep mobile actions attached to the viewport while page content scrolls. */
+.mobile-bottom-nav,
+.juejue-floating {
+  position: fixed !important;
+  transform: translateZ(0);
+  backface-visibility: hidden;
+}
+
+@media (max-width: 767px) {
+  .mobile-bottom-nav {
+    left: 0;
+    right: 0;
+    bottom: 0;
+  }
+}
+
 .aurora-bg {
   background: linear-gradient(120deg, var(--color-brand-50), var(--color-cream-50), var(--color-coral-50), var(--color-brand-100));
   background-size: 300% 300%;

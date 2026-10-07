@@ -89,7 +89,7 @@ export function JueJueChat({ userId }: { userId?: number }) {
       {!isOpen && (
         <button
           onClick={() => setIsOpen(true)}
-          className="fixed bottom-6 right-6 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-brand-500 text-white shadow-lg shadow-brand-500/30 transition-all hover:scale-110 active:scale-95"
+          className="juejue-floating fixed bottom-[calc(4.75rem+env(safe-area-inset-bottom))] right-4 z-[70] flex h-14 w-14 items-center justify-center rounded-full bg-brand-500 text-white shadow-lg shadow-brand-500/30 transition-all hover:scale-110 active:scale-95 sm:right-6 sm:bottom-6"
         >
           <JueJueMascot state="idle" size={48} showGlow={false} />
           <div className="absolute -right-1 -top-1 flex h-5 w-5 animate-bounce items-center justify-center rounded-full bg-coral-500 text-[10px] font-bold">
@@ -102,7 +102,7 @@ export function JueJueChat({ userId }: { userId?: number }) {
       {isOpen && (
         <div 
           className={cn(
-            "fixed bottom-6 right-6 z-50 flex flex-col overflow-hidden rounded-3xl bg-app shadow-2xl ring-1 ring-[var(--color-border)] transition-all duration-300",
+            "juejue-floating fixed bottom-[calc(4.75rem+env(safe-area-inset-bottom))] right-4 z-[70] flex flex-col overflow-hidden rounded-3xl bg-app shadow-2xl ring-1 ring-[var(--color-border)] transition-all duration-300 sm:right-6 sm:bottom-6",
             isMinimized ? "h-16 w-72" : "h-[600px] w-[400px] max-w-[calc(100vw-48px)] max-h-[calc(100vh-48px)]"
           )}
         >

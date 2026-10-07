@@ -281,7 +281,7 @@ export function AppShell({ user, children }: { user: ClientUser | null; children
         </div>
       )}
 
-      <div className="flex min-w-0 flex-1 flex-col pb-16 md:pb-0">
+      <div className="flex min-w-0 flex-1 flex-col pb-[calc(4.5rem+env(safe-area-inset-bottom))] md:pb-0">
         {/* Topbar */}
         <header className="sticky top-0 z-40 flex w-full items-center gap-3 border-b border-[var(--color-border)] bg-app/90 px-4 py-3 backdrop-blur-md md:px-8">
           <div className="flex shrink-0 items-center gap-3 md:hidden">
@@ -344,7 +344,7 @@ export function AppShell({ user, children }: { user: ClientUser | null; children
         />
       )}
 
-      <nav className="fixed inset-x-0 bottom-0 z-30 flex items-center justify-around border-t border-[var(--color-border)] bg-app/95 py-2 backdrop-blur-md md:hidden">
+      <nav className="mobile-bottom-nav fixed inset-x-0 bottom-0 z-[60] flex items-center justify-around border-t border-[var(--color-border)] bg-app/95 py-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] backdrop-blur-md md:hidden">
         {[exploreNav[0], exploreNav[1], exploreNav[3], exploreNav[4], { href: "/notifications", label: "通知", icon: Bell }].map((item) => {
           const active = pathname === item.href;
           const Icon = item.icon;
